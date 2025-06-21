@@ -1,0 +1,24 @@
+{
+  "students": [
+    {
+      "id": "900000",
+      "name": "Joel",
+      "completedGroups": [],
+      "progress": {
+        "currentGroupId": 1,
+        "currentQuestionIndex": 0,
+        "submissions": []
+      }
+    },
+    {
+      "id": "986532",
+      "name": "Eily",
+      "completedGroups": [],
+      "progress": {
+        "currentGroupId": 1,
+        "currentQuestionIndex": 0,
+        "submissions": []
+      }
+    }
+  ]
+}

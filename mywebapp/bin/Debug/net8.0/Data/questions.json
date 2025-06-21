@@ -1,0 +1,45 @@
+{
+    "questionGroups": [
+      {
+        "id": 1,
+        "title": "Electricity Bill Calculator",
+        "questions": [
+          {
+            "id": 1,
+            "title": "Basic Bill Calculation",
+            "description": "Calculate the electricity bill for [123] units using these rates:\n• First [23] units: $1.0 per unit\n• 101-200 units: $1.5 per unit\n• Above [34] units: $2.0 per unit\n\nExample calculation for 150 units:\n- First 100 units = $100 (100 × $1.0)\n- Next 50 units = $75 (50 × $1.5)\n- Total bill = $175\n\nExpected Output:\nShow the calculation breakdown and total bill amount.",
+            "initialCode": "using System;\nclass ElectricityBillCalculator\n{\n    static void Main()\n    {\n        // Input units consumed\n        double units = 250;\n        // Rate per unit (explicit conversion)\n        double rate;\n        if (units <= 100)\n        {\n            rate = 1.5;\n        }\n        else if (units <= 200)\n        {\n            rate = 2.0;\n        }\n        else\n        {\n            rate = 3.0;\n        }\n        // Calculate bill amount\n        double billAmount = units * rate;\n        // Implicit conversion\n        int roundedBillAmount = (int)billAmount;\n        // Determine category\n        string category = rate == 3.0 ? \"High Usage\" : (rate == 2.0 ? \"Moderate Usage\" : \"Low Usage\");\n        // Nested if-else for bill analysis\n        if (billAmount > 500)\n        {\n            Console.WriteLine(\"Warning: High electricity bill.\");\n        }\n        else\n        {\n            Console.WriteLine(\"Electricity bill is within the normal range.\");\n        }\n        Console.WriteLine(\"Usage Category: \" + category);\n        Console.WriteLine(\"Total Bill Amount: $\" + roundedBillAmount);\n    }\n}",
+            "difficulty": 1
+          },
+          {
+            "id": 2,
+            "title": "Rate Adjustment",
+            "description": "Modify the electricity bill calculator with new rates:\n• First 100 units: $1.0 per unit\n• 101-200 units: $1.5 per unit\n• Above 200 units: $2.5 per unit (increased rate)\n\nCalculate the bill for 250 units and show the impact of the rate change.\n\nExpected Output:\nShow calculation breakdown with the new rate applied.",
+            "initialCode": "using System;\n\nclass Program {\n    static void Main() {\n        int units = 250;\n        // Write your solution here\n    }\n}",
+            "difficulty": 2
+          },
+          {
+            "id": 3,
+            "title": "Discount Implementation",
+            "description": "Modify the electricity bill calculator to include a 10% discount when the bill exceeds $400.\n\nRequirements:\n• Apply standard rates first\n• Calculate if discount is applicable\n• Show both original and discounted amounts if discount applies\n\nExpected Output:\nShow original bill amount and discounted amount (if applicable).",
+            "initialCode": "using System;\n\nclass Program {\n    static void Main() {\n        int units = 300;\n        // Write your solution here\n    }\n}",
+            "difficulty": 3
+          },
+          {
+            "id": 4,
+            "title": "Modified Rate Tiers",
+            "description": "Adjust the electricity bill calculator with a new first tier rate:\n• First 50 units: $0.5 per unit (new lower rate)\n• 51-100 units: $1.0 per unit\n• 101-200 units: $1.5 per unit\n• Above 200 units: $2.0 per unit\n\nExpected Output:\nShow calculation breakdown with the new first tier rate.",
+            "initialCode": "using System;\n\nclass Program {\n    static void Main() {\n        int units = 150;\n        // Write your solution here\n    }\n}",
+            "difficulty": 3
+          },
+          {
+            "id": 5,
+            "title": "Unit Rounding Implementation",
+            "description": "Modify the electricity bill calculator to implement unit rounding:\n• Round the input units before calculation\n• Show both original and rounded values\n• Calculate bill based on rounded units\n\nExample: 150.6 units should be rounded to 151 units\n\nExpected Output:\nShow original units, rounded units, and final bill amount.",
+            "initialCode": "using System;\n\nclass Program {\n    static void Main() {\n        double units = 150.6;\n        // Write your solution here\n    }\n}",
+            "difficulty": 4
+          }
+        ]
+      }
+    ]
+  }

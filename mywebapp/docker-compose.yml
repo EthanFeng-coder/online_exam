@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  mywebapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=true  # Needed for file watchers in Docker
+      - ASPNETCORE_URLS=http://+:5001
+    volumes:
+      - .:/app
+    working_dir: /app
