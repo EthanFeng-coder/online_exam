@@ -1,0 +1,35 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Login";
+}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="text-center">Student Login</h3>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="form-group mb-3">
+                        <label asp-for="StudentId"></label>
+                        <input asp-for="StudentId" class="form-control" />
+                        <span asp-validation-for="StudentId" class="text-danger"></span>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="Password"></label>
+                        <input asp-for="Password" class="form-control" />
+                        <span asp-validation-for="Password" class="text-danger"></span>
+                    </div>
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <button type="submit" class="btn btn-primary w-100">Login</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

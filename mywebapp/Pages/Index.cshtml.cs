@@ -39,8 +39,10 @@ namespace mywebapp.Pages
             {
                 var jsonPath = Path.Combine(_environment.ContentRootPath, StudentsPath);
                 var jsonString = System.IO.File.ReadAllText(jsonPath);
+                
                 var studentData = JsonSerializer.Deserialize<StudentData>(jsonString, 
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? throw new InvalidOperationException("Failed to load student data");
 
                 Console.WriteLine($"Login attempt - ID: {StudentId}");
                 
@@ -48,18 +50,16 @@ namespace mywebapp.Pages
                 
                 if (student != null)
                 {
-                    Console.WriteLine($"Login successful - ID: {student.Id}");
-                    
-                    // Store student info in session
-                    HttpContext.Session.SetString("StudentId", student.Id);
-                    HttpContext.Session.SetString("StudentName", student.Name);
-                    
-                    // Redirect to dashboard with parameters
-                    return RedirectToPage("/Dashboard", new { 
+                    // Remove session related code since we'll use URL parameters
+                    Console.WriteLine($"Login successful for ID: {student.Id}");
+
+                    // Pass all necessary information via URL parameters
+                    return LocalRedirect(Url.Page("/Dashboard", new { 
                         group = 1, 
                         question = 0,
-                        studentId = student.Id 
-                    });
+                        studentId = student.Id,
+                        name = student.Name // optionally add student name if needed
+                    }) ?? "/");
                 }
 
                 Console.WriteLine($"Login failed - Invalid credentials for ID: {StudentId}");
@@ -69,6 +69,7 @@ namespace mywebapp.Pages
             catch (Exception ex)
             {
                 Console.WriteLine($"Login error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 ModelState.AddModelError(string.Empty, "An error occurred during login");
                 return Page();
             }

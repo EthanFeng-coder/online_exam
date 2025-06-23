@@ -14,6 +14,9 @@ namespace mywebapp.Controllers
         private readonly List<QuestionGroup> _questionGroups;
         private const string QuestionsPath = "Data/questions.json";
 
+        // Add these fields at the top of the controller
+        private readonly Dictionary<string, StudentProgress> _studentProgress = new();
+
         public QuestionsController(IWebHostEnvironment webHostEnvironment)
         {
             try
@@ -65,19 +68,21 @@ namespace mywebapp.Controllers
                     return text;
                 }
 
-                // Get student number segments
-                var firstThree = studentId.Substring(0, 3);
-                var nextThree = studentId.Substring(3, 3);
-                Console.WriteLine($"Student ID segments: {firstThree}, {nextThree}");
+                // Safely get student number segments with bounds checking
+                string onetothree = studentId.Substring(1, 3);
+                string twotofour = studentId.Substring(2, 4);
 
                 // Create replacement dictionary with more placeholder formats
-                var replacements = new Dictionary<string, string>
+                var replacements = new Dictionary<string, string>();
+                
+                if (!string.IsNullOrEmpty(onetothree))
                 {
-                    {"[98]", firstThree},
-                    {"[56]", nextThree},
-                    {"[0,3]", firstThree},
-                    {"[3,6]", nextThree}
-                };
+                    replacements.Add("[1,3]", onetothree);
+                }
+                if (!string.IsNullOrEmpty(twotofour))
+                {
+                    replacements.Add("[2,4]", twotofour);
+                }
 
                 string modifiedText = text;
                 foreach (var pair in replacements)
@@ -102,34 +107,22 @@ namespace mywebapp.Controllers
 
         private string GetOrCreateQuestionText(string originalText, string studentId, int groupId, int questionIndex)
         {
-            var sessionKey = $"question_{groupId}_{questionIndex}_text";
-            var storedText = HttpContext.Session.GetString(sessionKey);
-
-            if (!string.IsNullOrEmpty(storedText))
-            {
-                Console.WriteLine($"Retrieved stored text for student {studentId} from session");
-                return storedText;
-            }
-
-            var modifiedText = ReplaceWithStudentNumbers(originalText, studentId);
-            HttpContext.Session.SetString(sessionKey, modifiedText);
-            Console.WriteLine($"Stored new text for student {studentId} in session");
-            return modifiedText;
+            // Simply return the modified text without session storage
+            return ReplaceWithStudentNumbers(originalText, studentId);
         }
 
         [HttpGet("groups/{groupId}/questions/{questionIndex}")]
-        public ActionResult<Question> GetQuestionFromGroup(int groupId, int questionIndex)
+        public ActionResult<Question> GetQuestionFromGroup(int groupId, int questionIndex, [FromQuery] string studentId)
         {
             try
             {
-                // Get student ID from session only
-                var studentId = HttpContext.Session.GetString("StudentId");
-                Console.WriteLine($"Retrieved student ID from session: {studentId}");
+                // Check studentId from query parameter instead of session
+                Console.WriteLine($"Retrieved student ID from query: {studentId}");
 
                 if (string.IsNullOrEmpty(studentId))
                 {
-                    Console.WriteLine("No student ID found in session");
-                    return BadRequest(new { error = "Please log in first" });
+                    Console.WriteLine("No student ID found in query parameters");
+                    return BadRequest(new { error = "Student ID is required" });
                 }
 
                 var group = _questionGroups.FirstOrDefault(g => g.Id == groupId);
@@ -176,10 +169,9 @@ namespace mywebapp.Controllers
         {
             try
             {
-                var studentId = HttpContext.Session.GetString("StudentId");
-                if (string.IsNullOrEmpty(studentId))
+                if (string.IsNullOrEmpty(submission.StudentId))
                 {
-                    return BadRequest("No student ID found in session");
+                    return BadRequest("No student ID provided");
                 }
 
                 var group = _questionGroups.FirstOrDefault(g => g.Id == submission.GroupId);
@@ -193,11 +185,46 @@ namespace mywebapp.Controllers
                     return NotFound("Question not found");
                 }
 
-                // Store submission in session
-                var submissionKey = $"submission_{studentId}_{submission.GroupId}_{submission.QuestionIndex}";
+                // Update student progress
+                if (!_studentProgress.ContainsKey(submission.StudentId))
+                {
+                    _studentProgress[submission.StudentId] = new StudentProgress 
+                    { 
+                        StudentId = submission.StudentId,
+                        CurrentGroup = submission.GroupId,
+                        CurrentQuestion = submission.QuestionIndex
+                    };
+                }
+
+                var progress = _studentProgress[submission.StudentId];
+                string questionKey = $"{submission.GroupId}_{submission.QuestionIndex}";
+                progress.CompletedQuestions[questionKey] = true;
+
+                // Find next question
+                var nextQuestionIndex = submission.QuestionIndex + 1;
+                var nextGroup = submission.GroupId;
+                
+                if (!group.HasQuestion(nextQuestionIndex))
+                {
+                    // Move to next group if available
+                    nextQuestionIndex = 0;
+                    nextGroup++;
+                }
+
+                // Store submission
+                var submissionKey = $"submission_{submission.StudentId}_{submission.GroupId}_{submission.QuestionIndex}";
                 HttpContext.Session.SetString(submissionKey, submission.Code);
 
-                return Ok(new { message = "Solution submitted successfully" });
+                // Update current position
+                progress.CurrentGroup = nextGroup;
+                progress.CurrentQuestion = nextQuestionIndex;
+
+                return Ok(new { 
+                    message = "Solution submitted successfully",
+                    nextGroup = nextGroup,
+                    nextQuestion = nextQuestionIndex,
+                    progress = progress.CompletedQuestions.Count
+                });
             }
             catch (Exception ex)
             {
@@ -272,5 +299,21 @@ namespace mywebapp.Controllers
     public class QuestionData
     {
         public List<QuestionGroup> QuestionGroups { get; set; }
+    }
+
+    public class StudentProgress
+    {
+        public string StudentId { get; set; }
+        public int CurrentGroup { get; set; }
+        public int CurrentQuestion { get; set; }
+        public Dictionary<string, bool> CompletedQuestions { get; set; } = new();
+    }
+
+    public class CodeSubmission
+    {
+        public string StudentId { get; set; }
+        public int GroupId { get; set; }
+        public int QuestionIndex { get; set; }
+        public string Code { get; set; }
     }
 }

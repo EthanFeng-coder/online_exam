@@ -16,13 +16,13 @@ namespace mywebapp.Pages
         public Question? CurrentQuestion { get; set; }
 
         [BindProperty(SupportsGet = true)]
-        public int Group { get; set; } = 1;
+        public int Group { get; set; }
 
         [BindProperty(SupportsGet = true)]
-        public int Question { get; set; } = 0;
+        public int Question { get; set; }
 
         [BindProperty(SupportsGet = true)]
-        public string? StudentId { get; set; }
+        public string StudentId { get; set; } = string.Empty;
 
         public DashboardModel(IHttpClientFactory clientFactory, IHttpContextAccessor httpContextAccessor)
         {
