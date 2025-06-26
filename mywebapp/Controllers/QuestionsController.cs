@@ -174,7 +174,6 @@ namespace mywebapp.Controllers
             {
                 Console.WriteLine($"Processing submission for student: {submission.StudentId}");
                 
-                // Get the full path to students.json
                 var studentsPath = Path.Combine(_environment.ContentRootPath, "Data/students.json");
                 Console.WriteLine($"Loading students data from: {studentsPath}");
 
@@ -198,14 +197,28 @@ namespace mywebapp.Controllers
                     return NotFound("Student not found");
                 }
 
-                // Update student progress
-                student.Progress.Submissions.Add(new Submission
+                // Add new submission
+                var newSubmission = new Submission
                 {
                     GroupId = submission.GroupId,
                     QuestionIndex = submission.QuestionIndex,
                     Code = submission.Code,
                     SubmittedAt = DateTime.UtcNow
-                });
+                };
+                student.Progress.Submissions.Add(newSubmission);
+
+                // Check for duplicate submissions and remove older one
+                var submissions = student.Progress.Submissions
+                    .Where(s => s.QuestionIndex == submission.QuestionIndex)
+                    .OrderByDescending(s => s.SubmittedAt)
+                    .ToList();
+
+                if (submissions.Count > 1)
+                {
+                    Console.WriteLine($"Found multiple submissions for question {submission.QuestionIndex}, removing older one");
+                    var oldSubmission = submissions.Last();
+                    student.Progress.Submissions.Remove(oldSubmission);
+                }
 
                 // Update current position
                 student.Progress.CurrentGroupId = submission.GroupId;
@@ -352,7 +365,28 @@ namespace mywebapp.Controllers
 
                 if (previousSubmission == null)
                 {
-                    Console.WriteLine("No previous submission found, using default code");
+                    Console.WriteLine("No previous submission found, using code from question 0");
+                    
+                    // Get submission from question 0
+                    var question0Submission = student.Progress.Submissions
+                        .Where(s => s.GroupId == groupId && s.QuestionIndex == 0)
+                        .OrderByDescending(s => s.SubmittedAt)
+                        .FirstOrDefault();
+
+                    if (question0Submission != null)
+                    {
+                        Console.WriteLine("Found submission from question 0, using that code");
+                        return new Question
+                        {
+                            Id = originalQuestion.Id,
+                            Title = originalQuestion.Title,
+                            Description = originalQuestion.Description,
+                            InitialCode = question0Submission.Code,
+                            Difficulty = originalQuestion.Difficulty
+                        };
+                    }
+                    
+                    Console.WriteLine("No submission found for question 0, using default code");
                     return originalQuestion;
                 }
 

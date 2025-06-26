@@ -85,7 +85,7 @@ namespace mywebapp.Pages
                     Code = SubmittedCode
                 };
 
-                // First, submit the code
+                // Submit directly - the backend will handle replacing existing submission
                 var response = await client.PostAsJsonAsync("api/Questions/submit", submission);
                 Console.WriteLine($"Submission response status: {response.StatusCode}");
 
@@ -97,11 +97,8 @@ namespace mywebapp.Pages
                         throw new InvalidOperationException("Failed to get submission result");
                     }
 
-                    Console.WriteLine($"Submission successful. Next question: {result.NextQuestion}");
-                    Console.WriteLine($"Updating progress for student: {StudentId}");
-
                     // Update student progress
-                    var updateResponse = await client.PostAsJsonAsync($"api/Questions/updateProgress", new
+                    var updateResponse = await client.PostAsJsonAsync("api/Questions/updateProgress", new
                     {
                         StudentId = StudentId,
                         GroupId = Group,
@@ -117,7 +114,6 @@ namespace mywebapp.Pages
                         return Page();
                     }
 
-                    // Redirect to next question
                     return RedirectToPage("/Dashboard", new 
                     { 
                         studentId = StudentId,
@@ -135,7 +131,6 @@ namespace mywebapp.Pages
             catch (Exception ex)
             {
                 Console.WriteLine($"Error in submission: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 ErrorMessage = "Error submitting solution";
                 await OnGetAsync();
                 return Page();
@@ -156,5 +151,6 @@ namespace mywebapp.Pages
         public int GroupId { get; set; }
         public int QuestionIndex { get; set; }
         public required string Code { get; set; }
+        public bool ReplaceExisting { get; set; } = true;  // Default to replacing existing submissions
     }
 }
