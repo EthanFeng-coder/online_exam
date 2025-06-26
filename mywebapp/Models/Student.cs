@@ -22,17 +22,34 @@ namespace mywebapp.Models
 
         public void AddSubmission(int groupId, int questionIndex, string code)
         {
-            Progress.Submissions.Add(new Submission
+            try
             {
-                GroupId = groupId,
-                QuestionIndex = questionIndex,
-                Code = code,
-                SubmittedAt = DateTime.UtcNow
-            });
+                Console.WriteLine($"Adding submission for student {Id}");
+                Console.WriteLine($"Group: {groupId}, Question: {questionIndex}");
+                
+                Progress.Submissions.Add(new Submission
+                {
+                    GroupId = groupId,
+                    QuestionIndex = questionIndex,
+                    Code = code,
+                    SubmittedAt = DateTime.UtcNow
+                });
 
-            // Update progress
-            Progress.CurrentGroupId = groupId;
-            Progress.CurrentQuestionIndex = questionIndex + 1;
+                Console.WriteLine($"Submission added successfully");
+                Console.WriteLine($"Total submissions for student: {Progress.Submissions.Count}");
+
+                // Update progress
+                Progress.CurrentGroupId = groupId;
+                Progress.CurrentQuestionIndex = questionIndex + 1;
+                
+                Console.WriteLine($"Updated progress - Next Group: {Progress.CurrentGroupId}, Next Question: {Progress.CurrentQuestionIndex}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error adding submission: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                throw;
+            }
         }
 
         public bool HasCompletedQuestion(int groupId, int questionIndex)
@@ -61,19 +78,13 @@ namespace mywebapp.Models
     {
         public List<Student> Students { get; set; } = new();
 
-        public void SaveToFile(string path)
-        {
-            var json = JsonHelper.SerializeStudentData(this);
-            File.WriteAllText(path, json);
-        }
-
         public static StudentData LoadFromFile(string path)
         {
             if (!File.Exists(path))
                 return new StudentData();
             
             var json = File.ReadAllText(path);
-            return JsonHelper.DeserializeStudentData(json);
+            return JsonHelper.DeserializeStudentData(json) ?? new StudentData();
         }
     }
 
@@ -94,9 +105,18 @@ namespace mywebapp.Models
             WriteIndented = true
         };
 
-        public static StudentData DeserializeStudentData(string jsonString)
+        public static StudentData? DeserializeStudentData(string jsonString)
         {
-            return JsonSerializer.Deserialize<StudentData>(jsonString, _options);
+            try
+            {
+                return JsonSerializer.Deserialize<StudentData>(jsonString, _options) 
+                    ?? new StudentData();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deserializing student data: {ex.Message}");
+                return new StudentData();
+            }
         }
 
         public static string SerializeStudentData(StudentData studentData)

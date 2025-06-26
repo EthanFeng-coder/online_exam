@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using mywebapp.Models;
 using Microsoft.AspNetCore.Http;
+using System.ComponentModel.DataAnnotations;
 
 namespace mywebapp.Controllers
 {
@@ -11,17 +12,23 @@ namespace mywebapp.Controllers
     [Route("api/[controller]")]
     public class QuestionsController : ControllerBase
     {
+        private readonly IWebHostEnvironment _environment;
         private readonly List<QuestionGroup> _questionGroups;
         private const string QuestionsPath = "Data/questions.json";
 
-        // Add these fields at the top of the controller
+        public QuestionsController(IWebHostEnvironment environment)
+        {
+            _environment = environment;
+            _questionGroups = LoadQuestions();
+        }
+
         private readonly Dictionary<string, StudentProgress> _studentProgress = new();
 
-        public QuestionsController(IWebHostEnvironment webHostEnvironment)
+        private List<QuestionGroup> LoadQuestions()
         {
             try
             {
-                var jsonPath = Path.Combine(webHostEnvironment.ContentRootPath, QuestionsPath);
+                var jsonPath = Path.Combine(_environment.ContentRootPath, QuestionsPath);
                 Console.WriteLine($"Loading questions from: {jsonPath}");
 
                 if (!System.IO.File.Exists(jsonPath))
@@ -38,14 +45,15 @@ namespace mywebapp.Controllers
                 };
 
                 var data = JsonSerializer.Deserialize<QuestionData>(jsonString, options);
-                _questionGroups = data?.QuestionGroups ?? new List<QuestionGroup>();
+                var questionGroups = data?.QuestionGroups ?? new List<QuestionGroup>();
                 
-                Console.WriteLine($"Successfully loaded {_questionGroups.Count} question groups");
+                Console.WriteLine($"Successfully loaded {questionGroups.Count} question groups");
+                return questionGroups;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading questions: {ex.Message}");
-                _questionGroups = new List<QuestionGroup>();
+                return new List<QuestionGroup>();
             }
         }
 
@@ -116,7 +124,6 @@ namespace mywebapp.Controllers
         {
             try
             {
-                // Check studentId from query parameter instead of session
                 Console.WriteLine($"Retrieved student ID from query: {studentId}");
 
                 if (string.IsNullOrEmpty(studentId))
@@ -139,17 +146,13 @@ namespace mywebapp.Controllers
                     return NotFound($"Question {questionIndex} not found");
                 }
 
-                // Create a copy with replaced values
-                var questionCopy = new Question
-                {
-                    Id = question.Id,
-                    Title = question.Title,
-                    Description = ReplaceWithStudentNumbers(question.Description, studentId),
-                    InitialCode = ReplaceWithStudentNumbers(question.InitialCode, studentId),
-                    TestCases = question.TestCases?.ToList() ?? new List<string>()
-                };
+                // Get question with previous submission's code
+                var questionWithPreviousCode = GetQuestionWithInitialCode(question, studentId, groupId, questionIndex);
 
-                return Ok(questionCopy);
+                // Replace placeholders in description
+                questionWithPreviousCode.Description = ReplaceWithStudentNumbers(questionWithPreviousCode.Description, studentId);
+
+                return Ok(questionWithPreviousCode);
             }
             catch (Exception ex)
             {
@@ -169,67 +172,81 @@ namespace mywebapp.Controllers
         {
             try
             {
-                if (string.IsNullOrEmpty(submission.StudentId))
+                Console.WriteLine($"Processing submission for student: {submission.StudentId}");
+                
+                // Get the full path to students.json
+                var studentsPath = Path.Combine(_environment.ContentRootPath, "Data/students.json");
+                Console.WriteLine($"Loading students data from: {studentsPath}");
+
+                if (!System.IO.File.Exists(studentsPath))
                 {
-                    return BadRequest("No student ID provided");
+                    Console.WriteLine("Error: students.json not found");
+                    return StatusCode(500, "Student data file not found");
                 }
 
-                var group = _questionGroups.FirstOrDefault(g => g.Id == submission.GroupId);
-                if (group == null)
-                {
-                    return NotFound("Question group not found");
-                }
+                // Read and parse the JSON file
+                var jsonString = System.IO.File.ReadAllText(studentsPath);
+                var studentData = JsonSerializer.Deserialize<StudentData>(jsonString,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? throw new InvalidOperationException("Failed to load student data");
 
-                if (!group.HasQuestion(submission.QuestionIndex))
+                // Find the student
+                var student = studentData.Students.FirstOrDefault(s => s.Id == submission.StudentId);
+                if (student == null)
                 {
-                    return NotFound("Question not found");
+                    Console.WriteLine($"Student not found: {submission.StudentId}");
+                    return NotFound("Student not found");
                 }
 
                 // Update student progress
-                if (!_studentProgress.ContainsKey(submission.StudentId))
+                student.Progress.Submissions.Add(new Submission
                 {
-                    _studentProgress[submission.StudentId] = new StudentProgress 
-                    { 
-                        StudentId = submission.StudentId,
-                        CurrentGroup = submission.GroupId,
-                        CurrentQuestion = submission.QuestionIndex
-                    };
-                }
-
-                var progress = _studentProgress[submission.StudentId];
-                string questionKey = $"{submission.GroupId}_{submission.QuestionIndex}";
-                progress.CompletedQuestions[questionKey] = true;
-
-                // Find next question
-                var nextQuestionIndex = submission.QuestionIndex + 1;
-                var nextGroup = submission.GroupId;
-                
-                if (!group.HasQuestion(nextQuestionIndex))
-                {
-                    // Move to next group if available
-                    nextQuestionIndex = 0;
-                    nextGroup++;
-                }
-
-                // Store submission
-                var submissionKey = $"submission_{submission.StudentId}_{submission.GroupId}_{submission.QuestionIndex}";
-                HttpContext.Session.SetString(submissionKey, submission.Code);
+                    GroupId = submission.GroupId,
+                    QuestionIndex = submission.QuestionIndex,
+                    Code = submission.Code,
+                    SubmittedAt = DateTime.UtcNow
+                });
 
                 // Update current position
-                progress.CurrentGroup = nextGroup;
-                progress.CurrentQuestion = nextQuestionIndex;
+                student.Progress.CurrentGroupId = submission.GroupId;
+                student.Progress.CurrentQuestionIndex = submission.QuestionIndex + 1;
 
-                return Ok(new { 
-                    message = "Solution submitted successfully",
-                    nextGroup = nextGroup,
-                    nextQuestion = nextQuestionIndex,
-                    progress = progress.CompletedQuestions.Count
+                // Check if group is completed
+                var group = _questionGroups.FirstOrDefault(g => g.Id == submission.GroupId);
+                if (group != null && submission.QuestionIndex >= group.Questions.Count - 1)
+                {
+                    if (!student.CompletedGroups.Contains(submission.GroupId))
+                    {
+                        student.CompletedGroups.Add(submission.GroupId);
+                    }
+                    student.Progress.CurrentGroupId++;
+                    student.Progress.CurrentQuestionIndex = 0;
+                }
+
+                // Save the updated JSON back to file
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
+                
+                var updatedJson = JsonSerializer.Serialize(studentData, options);
+                System.IO.File.WriteAllText(studentsPath, updatedJson);
+                
+                Console.WriteLine("Successfully updated student progress");
+
+                return Ok(new
+                {
+                    message = "Submission saved successfully",
+                    nextGroup = student.Progress.CurrentGroupId,
+                    nextQuestion = student.Progress.CurrentQuestionIndex
                 });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in submission: {ex.Message}");
-                return StatusCode(500, "Failed to submit solution");
+                Console.WriteLine($"Error processing submission: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return StatusCode(500, "Failed to process submission");
             }
         }
 
@@ -289,6 +306,75 @@ namespace mywebapp.Controllers
             return null;
         }
 
+        private Question GetQuestionWithInitialCode(Question originalQuestion, string studentId, int groupId, int questionIndex)
+        {
+            try
+            {
+                // If it's the first question, return original
+                if (questionIndex == 0)
+                {
+                    return originalQuestion;
+                }
+
+                // Load students.json to get previous submission
+                var studentsPath = Path.Combine(_environment.ContentRootPath, "Data/students.json");
+                Console.WriteLine($"Loading students data from: {studentsPath}");
+
+                if (!System.IO.File.Exists(studentsPath))
+                {
+                    Console.WriteLine("Students.json not found, using default code");
+                    return originalQuestion;
+                }
+
+                var jsonString = System.IO.File.ReadAllText(studentsPath);
+                var studentData = JsonSerializer.Deserialize<StudentData>(jsonString,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (studentData == null)
+                {
+                    Console.WriteLine("Failed to load student data, using default code");
+                    return originalQuestion;
+                }
+
+                // Find student's previous question submission
+                var student = studentData.Students.FirstOrDefault(s => s.Id == studentId);
+                if (student == null)
+                {
+                    Console.WriteLine($"Student {studentId} not found, using default code");
+                    return originalQuestion;
+                }
+
+                // Get the last submission from the previous question
+                var previousSubmission = student.Progress.Submissions
+                    .Where(s => s.GroupId == groupId && s.QuestionIndex == (questionIndex - 1))
+                    .OrderByDescending(s => s.SubmittedAt)
+                    .FirstOrDefault();
+
+                if (previousSubmission == null)
+                {
+                    Console.WriteLine("No previous submission found, using default code");
+                    return originalQuestion;
+                }
+
+                Console.WriteLine($"Found previous submission for question {questionIndex - 1}");
+
+                // Create a new question with the previous submission's code
+                return new Question
+                {
+                    Id = originalQuestion.Id,
+                    Title = originalQuestion.Title,
+                    Description = originalQuestion.Description,
+                    InitialCode = previousSubmission.Code,
+                    Difficulty = originalQuestion.Difficulty
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading previous code: {ex.Message}");
+                return originalQuestion;
+            }
+        }
+
         public class AutoSaveData
         {
             public string Code { get; set; }
@@ -311,9 +397,16 @@ namespace mywebapp.Controllers
 
     public class CodeSubmission
     {
-        public string StudentId { get; set; }
+        [Required(ErrorMessage = "Student ID is required")]
+        public string StudentId { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Group ID is required")]
         public int GroupId { get; set; }
+
+        [Required(ErrorMessage = "Question Index is required")]
         public int QuestionIndex { get; set; }
-        public string Code { get; set; }
+
+        [Required(ErrorMessage = "Code submission is required")]
+        public string Code { get; set; } = string.Empty;
     }
 }

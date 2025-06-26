@@ -24,6 +24,9 @@ namespace mywebapp.Pages
         [BindProperty(SupportsGet = true)]
         public string StudentId { get; set; } = string.Empty;
 
+        [BindProperty]
+        public string SubmittedCode { get; set; } = string.Empty;
+
         public DashboardModel(IHttpClientFactory clientFactory, IHttpContextAccessor httpContextAccessor)
         {
             _clientFactory = clientFactory;
@@ -34,70 +37,124 @@ namespace mywebapp.Pages
         {
             try
             {
-                // First check TempData for newly logged in users
-                var tempStudentId = TempData["StudentId"]?.ToString();
-                if (!string.IsNullOrEmpty(tempStudentId))
-                {
-                    StudentId = tempStudentId;
-                    HttpContext.Session.SetString("StudentId", tempStudentId);
-                    Console.WriteLine($"Set student ID from TempData: {StudentId}");
-                }
-                // Then try query parameter
-                else if (!string.IsNullOrEmpty(StudentId))
-                {
-                    HttpContext.Session.SetString("StudentId", StudentId);
-                    Console.WriteLine($"Set student ID from query: {StudentId}");
-                }
-                // Finally try session
-                else
-                {
-                    StudentId = HttpContext.Session.GetString("StudentId");
-                    Console.WriteLine($"Retrieved student ID from session: {StudentId}");
-                }
-
+                // Get parameters from query string
                 if (string.IsNullOrEmpty(StudentId))
                 {
-                    Console.WriteLine("No student ID found - redirecting to login");
                     return RedirectToPage("/Index");
                 }
 
-                // Use named client from factory
                 var client = _clientFactory.CreateClient("Questions");
-                var request = new HttpRequestMessage(HttpMethod.Get, 
-                    $"api/Questions/groups/{Group}/questions/{Question}?studentId={StudentId}");
-
-                var response = await client.SendAsync(request);
-                Console.WriteLine($"Response status: {response.StatusCode}");
-
+                var response = await client.GetAsync($"api/Questions/groups/{Group}/questions/{Question}?studentId={StudentId}");
+                
+                Console.WriteLine($"API Response status: {response.StatusCode}");
+                
                 if (response.IsSuccessStatusCode)
                 {
-                    var content = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"API Response content length: {content.Length}");
-                    
-                    CurrentQuestion = JsonSerializer.Deserialize<Question>(content, 
-                        new JsonSerializerOptions { 
-                            PropertyNameCaseInsensitive = true,
-                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                        });
-
-                    if (CurrentQuestion == null)
-                    {
-                        ErrorMessage = "Failed to deserialize question";
-                        return Page();
-                    }
-
+                    CurrentQuestion = await response.Content.ReadFromJsonAsync<Question>();
                     return Page();
                 }
-
-                ErrorMessage = $"Failed to load question. Status: {response.StatusCode}";
+                
+                ErrorMessage = "Failed to load question";
                 return Page();
             }
             catch (Exception ex)
             {
-                ErrorMessage = $"Error loading question: {ex.Message}";
-                Console.WriteLine($"Exception: {ex}");
+                ErrorMessage = $"Error: {ex.Message}";
                 return Page();
             }
         }
+
+        public async Task<IActionResult> OnPostAsync()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(StudentId))
+                {
+                    Console.WriteLine("No student ID found for submission");
+                    return RedirectToPage("/Index");
+                }
+
+                Console.WriteLine($"Submitting solution for Student: {StudentId}, Group: {Group}, Question: {Question}");
+
+                var client = _clientFactory.CreateClient("Questions");
+                var submission = new CodeSubmission
+                {
+                    StudentId = StudentId,
+                    GroupId = Group,
+                    QuestionIndex = Question,
+                    Code = SubmittedCode
+                };
+
+                // First, submit the code
+                var response = await client.PostAsJsonAsync("api/Questions/submit", submission);
+                Console.WriteLine($"Submission response status: {response.StatusCode}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<SubmissionResult>();
+                    if (result == null)
+                    {
+                        throw new InvalidOperationException("Failed to get submission result");
+                    }
+
+                    Console.WriteLine($"Submission successful. Next question: {result.NextQuestion}");
+                    Console.WriteLine($"Updating progress for student: {StudentId}");
+
+                    // Update student progress
+                    var updateResponse = await client.PostAsJsonAsync($"api/Questions/updateProgress", new
+                    {
+                        StudentId = StudentId,
+                        GroupId = Group,
+                        QuestionIndex = Question,
+                        Completed = true
+                    });
+
+                    if (!updateResponse.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine($"Failed to update progress: {updateResponse.StatusCode}");
+                        ErrorMessage = "Failed to update progress";
+                        await OnGetAsync();
+                        return Page();
+                    }
+
+                    // Redirect to next question
+                    return RedirectToPage("/Dashboard", new 
+                    { 
+                        studentId = StudentId,
+                        group = result.NextGroup,
+                        question = result.NextQuestion
+                    });
+                }
+
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Submission failed: {errorContent}");
+                ErrorMessage = "Failed to submit solution";
+                await OnGetAsync();
+                return Page();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in submission: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                ErrorMessage = "Error submitting solution";
+                await OnGetAsync();
+                return Page();
+            }
+        }
+    }
+
+    public class SubmissionResult
+    {
+        public string Message { get; set; } = string.Empty;
+        public int NextGroup { get; set; }
+        public int NextQuestion { get; set; }
+    }
+
+    public class CodeSubmission
+    {
+        public required string StudentId { get; set; }
+        public int GroupId { get; set; }
+        public int QuestionIndex { get; set; }
+        public required string Code { get; set; }
     }
 }
