@@ -5,6 +5,7 @@ using System.IO;
 using mywebapp.Models;
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace mywebapp.Controllers
 {
@@ -16,9 +17,12 @@ namespace mywebapp.Controllers
         private readonly List<QuestionGroup> _questionGroups;
         private const string QuestionsPath = "Data/questions.json";
 
-        public QuestionsController(IWebHostEnvironment environment)
+        private readonly IDataProtectionProvider _dataProtectionProvider;
+
+        public QuestionsController(IWebHostEnvironment environment, IDataProtectionProvider dataProtectionProvider)
         {
             _environment = environment;
+            _dataProtectionProvider = dataProtectionProvider;
             _questionGroups = LoadQuestions();
         }
 
@@ -264,34 +268,58 @@ namespace mywebapp.Controllers
         }
 
         // Add new method for auto-save
-        [HttpPost("autosave")]
-        public ActionResult AutoSaveCode([FromBody] CodeSubmission submission)
+        [HttpPost("autosave/{studentId}")]
+        public async Task<IActionResult> AutoSave(string studentId, [FromBody] AutoSaveRequest request)
         {
             try
             {
-                var studentId = HttpContext.Session.GetString("StudentId");
                 if (string.IsNullOrEmpty(studentId))
                 {
-                    return BadRequest("No active session found");
+                    return BadRequest("Student ID is required");
                 }
 
-                var autosaveKey = $"autosave_{studentId}_{submission.GroupId}_{submission.QuestionIndex}";
-                var saveData = new AutoSaveData
+                // Read and parse the JSON file with proper options
+                var jsonFilePath = Path.Combine(_environment.ContentRootPath, "Data", "students.json");
+                var jsonContent = await System.IO.File.ReadAllTextAsync(jsonFilePath);
+                var data = JsonSerializer.Deserialize<StudentData>(jsonContent,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                    ?? throw new InvalidOperationException("Failed to load student data");
+
+                // Debug log the student data
+                // Console.WriteLine($"Looking for student with ID: {studentId}");
+                // Console.WriteLine("Available students in data:");
+                // foreach (var s in data.Students)
+                // {
+                //     Console.WriteLine($"Student ID: {s.Id}, Name: {s.Name}");
+                // }
+
+                var student = data.Students.FirstOrDefault(s => s.Id == studentId);
+                //Console.WriteLine($"Comparison result - Looking for: {studentId}, Found: {student?.Id ?? "not found"}");
+
+                if (student == null)
                 {
-                    Code = submission.Code,
-                    LastSaved = DateTime.Now
+                    return NotFound($"Student {studentId} not found");
+                }
+
+                // Create autosave entry using same structure as submission
+                student.Progress.AutoSave = new Submission
+                {
+                    GroupId = request.GroupId,
+                    QuestionIndex = request.QuestionIndex,
+                    Code = request.Code,
+                    SubmittedAt = DateTime.UtcNow
                 };
 
-                var jsonString = JsonSerializer.Serialize(saveData);
-                HttpContext.Session.SetString(autosaveKey, jsonString);
+                // Save back to file
+                await System.IO.File.WriteAllTextAsync(jsonFilePath, 
+                    JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true }));
 
-                //Console.WriteLine($"Auto-saved code for student {studentId}, question {submission.QuestionIndex}");
-                return Ok(new { message = "Code auto-saved", timestamp = DateTime.Now });
+                return Ok(new { success = true });
             }
             catch (Exception ex)
             {
-                //Console.WriteLine($"Error in AutoSaveCode: {ex.Message}");
-                return StatusCode(500, "Failed to auto-save code");
+                Console.WriteLine($"Error in AutoSave: {ex.Message}");
+                return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
 
@@ -441,6 +469,13 @@ namespace mywebapp.Controllers
         public int QuestionIndex { get; set; }
 
         [Required(ErrorMessage = "Code submission is required")]
+        public string Code { get; set; } = string.Empty;
+    }
+
+    public class AutoSaveRequest
+    {
+        public int GroupId { get; set; }
+        public int QuestionIndex { get; set; }
         public string Code { get; set; } = string.Empty;
     }
 }

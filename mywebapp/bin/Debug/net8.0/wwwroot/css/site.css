@@ -20,3 +20,12 @@ html {
 body {
   margin-bottom: 60px;
 }
+
+#autoSaveStatus {
+    margin-left: 10px;
+    font-size: 0.9em;
+}
+
+#testAutoSaveBtn {
+    min-width: 120px;
+}

@@ -64,6 +64,7 @@ namespace mywebapp.Models
         public int CurrentGroupId { get; set; } = 1;
         public int CurrentQuestionIndex { get; set; } = 0;
         public List<Submission> Submissions { get; set; } = new();
+        public Submission? AutoSave { get; set; }
     }
 
     public class Submission

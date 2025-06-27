@@ -2,21 +2,19 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add HttpContext accessor
+// Remove these lines
+// builder.Services.AddSession(options => {
+//     options.IdleTimeout = TimeSpan.FromMinutes(30);
+//     options.Cookie.HttpOnly = true;
+//     options.Cookie.IsEssential = true;
+// });
+
+// Keep only necessary services
 builder.Services.AddHttpContextAccessor();
-
-// Add services to the container.
-builder.Services.AddSession(options =>
-{
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-});
-
-// Add services to the container.
 builder.Services.AddRazorPages();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -64,7 +62,6 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 
 app.UseRouting();
-app.UseSession();
 app.UseAuthorization();
 app.MapRazorPages();
 app.MapControllers();

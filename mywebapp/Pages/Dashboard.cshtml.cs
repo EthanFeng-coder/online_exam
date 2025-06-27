@@ -82,10 +82,20 @@ namespace mywebapp.Pages
                     StudentId = StudentId,
                     GroupId = Group,
                     QuestionIndex = Question,
-                    Code = SubmittedCode
+                    Code = SubmittedCode,
+                    ReplaceExisting = true  // Flag to indicate replacing existing submission
                 };
 
-                // Submit directly - the backend will handle replacing existing submission
+                // First, delete any existing submission for this question
+                var deleteResponse = await client.DeleteAsync(
+                    $"api/Questions/submissions?studentId={StudentId}&groupId={Group}&questionIndex={Question}");
+                
+                if (!deleteResponse.IsSuccessStatusCode && deleteResponse.StatusCode != HttpStatusCode.NotFound)
+                {
+                    Console.WriteLine($"Failed to clean up old submission: {deleteResponse.StatusCode}");
+                }
+
+                // Submit the new code
                 var response = await client.PostAsJsonAsync("api/Questions/submit", submission);
                 Console.WriteLine($"Submission response status: {response.StatusCode}");
 
@@ -97,8 +107,11 @@ namespace mywebapp.Pages
                         throw new InvalidOperationException("Failed to get submission result");
                     }
 
+                    Console.WriteLine($"Submission successful. Next question: {result.NextQuestion}");
+                    Console.WriteLine($"Updating progress for student: {StudentId}");
+
                     // Update student progress
-                    var updateResponse = await client.PostAsJsonAsync("api/Questions/updateProgress", new
+                    var updateResponse = await client.PostAsJsonAsync($"api/Questions/updateProgress", new
                     {
                         StudentId = StudentId,
                         GroupId = Group,
@@ -114,6 +127,7 @@ namespace mywebapp.Pages
                         return Page();
                     }
 
+                    // Redirect to next question
                     return RedirectToPage("/Dashboard", new 
                     { 
                         studentId = StudentId,
@@ -131,9 +145,45 @@ namespace mywebapp.Pages
             catch (Exception ex)
             {
                 Console.WriteLine($"Error in submission: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 ErrorMessage = "Error submitting solution";
                 await OnGetAsync();
                 return Page();
+            }
+        }
+
+        public async Task<IActionResult> OnPostAutoSaveAsync([FromBody] CodeSubmission submission)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(submission.StudentId))
+                {
+                    return BadRequest("No student ID provided");
+                }
+
+                var client = _clientFactory.CreateClient("Questions");
+                
+                var autoSave = new AutoSave
+                {
+                    GroupId = submission.GroupId,
+                    QuestionIndex = submission.QuestionIndex,
+                    Code = submission.Code,
+                    SavedAt = DateTime.UtcNow
+                };
+
+                // Submit the auto-saved code
+                var response = await client.PostAsJsonAsync($"api/Questions/autosave/{submission.StudentId}", autoSave);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    return new JsonResult(new { success = true });
+                }
+
+                return new JsonResult (new { success = false, message = "Failed to auto-save" });
+            }
+            catch (Exception ex)
+            {
+                return new JsonResult(new { success = false, message = ex.Message });
             }
         }
     }
@@ -152,5 +202,13 @@ namespace mywebapp.Pages
         public int QuestionIndex { get; set; }
         public required string Code { get; set; }
         public bool ReplaceExisting { get; set; } = true;  // Default to replacing existing submissions
+    }
+
+    public class AutoSave
+    {
+        public int GroupId { get; set; }
+        public int QuestionIndex { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public DateTime SavedAt { get; set; }
     }
 }

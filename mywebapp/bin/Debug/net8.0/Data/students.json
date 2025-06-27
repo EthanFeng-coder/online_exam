@@ -1,36 +1,43 @@
 {
-  "students": [
+  "Students": [
     {
-      "id": "900000",
-      "name": "Joel",
-      "completedGroups": [],
-      "progress": {
-        "currentGroupId": 1,
-        "currentQuestionIndex": 0,
-        "submissions": []
+      "Id": "900000",
+      "Name": "Joel",
+      "CompletedGroups": [],
+      "Progress": {
+        "CurrentGroupId": 1,
+        "CurrentQuestionIndex": 0,
+        "Submissions": [],
+        "AutoSave": null
       }
     },
     {
-      "id": "986532",
-      "name": "Eily",
-      "completedGroups": [],
-      "progress": {
-        "currentGroupId": 1,
-        "currentQuestionIndex": 1,
-        "submissions": [
+      "Id": "986532",
+      "Name": "Eily",
+      "CompletedGroups": [],
+      "Progress": {
+        "CurrentGroupId": 1,
+        "CurrentQuestionIndex": 1,
+        "Submissions": [
           {
-            "groupId": 1,
-            "questionIndex": 1,
-            "code": "using System;\nclass ElectricityBillCalculator\n{\n    static void Main()\n    {\n        // Input units consumed\n        double units = 250;\n        // Rate per unit (explicit conversion)\n        double rate;\n        if (units \u003C= 100)\n        {\n            rate = 2.2;\n        }\n        else if (units \u003C= 200)\n        {\n            rate = 2.0;\n        }\n        else\n        {\n            rate = 3.0;\n        }\n        // Calculate bill amount\n        double billAmount = units * rate;\n        // Implicit conversion\n        int roundedBillAmount = (int)billAmount;\n        // Determine category\n        string category = rate == 3.0 ? \u0022High Usage\u0022 : (rate == 2.0 ? \u0022Moderate Usage\u0022 : \u0022Low Usage\u0022);\n        // Nested if-else for bill analysis\n        if (billAmount \u003E 500)\n        {\n            Console.WriteLine(\u0022Warning: High electricity bill.\u0022);\n        }\n        else\n        {\n            Console.WriteLine(\u0022Electricity bill is within the normal range.\u0022);\n        }\n        Console.WriteLine(\u0022Usage Category: \u0022 \u002B category);\n        Console.WriteLine(\u0022Total Bill Amount: $\u0022 \u002B roundedBillAmount);\n    }\n}",
-            "submittedAt": "2025-06-26T11:29:37.5682226Z"
+            "GroupId": 1,
+            "QuestionIndex": 1,
+            "Code": "using System;\nclass ElectricityBillCalculator\n{\n    static void Main()\n    {\n        // Input units consumed\n        double units = 250;\n        // Rate per unit (explicit conversion)\n        double rate;\n        if (units \u003C= 100)\n        {\n            rate = 2.2;\n        }\n        else if (units \u003C= 200)\n        {\n            rate = 2.0;\n        }\n        else\n        {\n            rate = 3.0;\n        }\n        // Calculate bill amount\n        double billAmount = units * rate;\n        // Implicit conversion\n        int roundedBillAmount = (int)billAmount;\n        // Determine category\n        string category = rate == 3.0 ? \u0022High Usage\u0022 : (rate == 2.0 ? \u0022Moderate Usage\u0022 : \u0022Low Usage\u0022);\n        // Nested if-else for bill analysis\n        if (billAmount \u003E 500)\n        {\n            Console.WriteLine(\u0022Warning: High electricity bill.\u0022);\n        }\n        else\n        {\n            Console.WriteLine(\u0022Electricity bill is within the normal range.\u0022);\n        }\n        Console.WriteLine(\u0022Usage Category: \u0022 \u002B category);\n        Console.WriteLine(\u0022Total Bill Amount: $\u0022 \u002B roundedBillAmount);\n    }\n}",
+            "SubmittedAt": "2025-06-26T11:29:37.5682226Z"
           },
           {
-            "groupId": 1,
-            "questionIndex": 0,
-            "code": "using System;\nclass ElectricityBillCalculator\n{\n    static void Main()\n    {\n        // Input units consumed\n        double units = 25;\n        // Rate per unit (explicit conversion)\n        double rate;\n        if (units \u003C= 100)\n        {\n            rate = 1.5;\n        }\n        else if (units \u003C= 200)\n        {\n            rate = 2.0;\n        }\n        else\n        {\n            rate = 3.0;\n        }\n        // Calculate bill amount\n        double billAmount = units * rate;\n        // Implicit conversion\n        int roundedBillAmount = (int)billAmount;\n        // Determine category\n        string category = rate == 3.0 ? \u0022High Usage\u0022 : (rate == 2.0 ? \u0022Moderate Usage\u0022 : \u0022Low Usage\u0022);\n        // Nested if-else for bill analysis\n        if (billAmount \u003E 500)\n        {\n            Console.WriteLine(\u0022Warning: High electricity bill.\u0022);\n        }\n        else\n        {\n            Console.WriteLine(\u0022Electricity bill is within the normal range.\u0022);\n        }\n        Console.WriteLine(\u0022Usage Category: \u0022 \u002B category);\n        Console.WriteLine(\u0022Total Bill Amount: $\u0022 \u002B roundedBillAmount);\n    }\n}",
-            "submittedAt": "2025-06-26T11:33:18.5287415Z"
+            "GroupId": 1,
+            "QuestionIndex": 0,
+            "Code": "using System;\nclass ElectricityBillCalculator\n{\n    static void Main()\n    {\n        // Input units consumed\n        double units = 25;\n        // Rate per unit (explicit conversion)\n        double rate;\n        if (units \u003C= 100)\n        {\n            rate = 1.5;\n        }\n        else if (units \u003C= 200)\n        {\n            rate = 2.0;\n        }\n        else\n        {\n            rate = 3.0;\n        }\n        // Calculate bill amount\n        double billAmount = units * rate;\n        // Implicit conversion\n        int roundedBillAmount = (int)billAmount;\n        // Determine category\n        string category = rate == 3.0 ? \u0022High Usage\u0022 : (rate == 2.0 ? \u0022Moderate Usage\u0022 : \u0022Low Usage\u0022);\n        // Nested if-else for bill analysis\n        if (billAmount \u003E 500)\n        {\n            Console.WriteLine(\u0022Warning: High electricity bill.\u0022);\n        }\n        else\n        {\n            Console.WriteLine(\u0022Electricity bill is within the normal range.\u0022);\n        }\n        Console.WriteLine(\u0022Usage Category: \u0022 \u002B category);\n        Console.WriteLine(\u0022Total Bill Amount: $\u0022 \u002B roundedBillAmount);\n    }\n}",
+            "SubmittedAt": "2025-06-26T11:33:18.5287415Z"
           }
-        ]
+        ],
+        "AutoSave": {
+          "GroupId": 1,
+          "QuestionIndex": 1,
+          "Code": "using System;\nclass ElectricityBillCalculator\n{\n    static void Main()\n    {\n        // Input units consumed\n        double units = 25;\n        // Rate per unit (explicit conversion)\n        double rate;\n        if (units \u003C= 100)\n        {\n            rate = 1.5;\n        }\n        else if (units \u003C= 200)\n        {\n            rate = 2.0;\n        }\n        else\n        {\n            rate = 3.0;\n        }\n        // Calculate bill amount\n        double billAmount = units * rate;\n        // Implicit conversion\n        int roundedBillAmount = (int)billAmount;\n        // Determine category\n        string category = rate == 3.0 ? \u0022High Usage\u0022 : (rate == 2.0 ? \u0022Moderate Usage\u0022 : \u0022Low Usage\u0022);\n        // Nested if-else for bill analysis\n        if (billAmount \u003E 500)\n        {\n            Console.WriteLine(\u0022Warning: High electricity bill.\u0022);\n        }\n        else\n        {\n            Console.WriteLine(\u0022Electricity bill is within the normal range.\u0022);\n        }\n        Console.WriteLine(\u0022Usage Category: \u0022 \u002B category);\n        Console.WriteLine(\u0022Total Bill Amount: $\u0022 \u002B roundedBillAmount);\n    }\n}",
+          "SubmittedAt": "2025-06-27T04:18:07.8599967Z"
+        }
       }
     }
   ]

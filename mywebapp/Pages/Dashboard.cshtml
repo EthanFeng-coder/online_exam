@@ -44,7 +44,7 @@
                         </div>
                         <div class="p-2 d-flex gap-2">
                             <button type="button" class="btn btn-primary" id="runCode">Run Code</button>
-                            <button type="button" class="btn btn-success" id="submitBtn">Submit</button>
+                            <button type="button" class="btn btn-success" id="submitBtn">Submit</butto>
                         </div>
                     </form>
                 </div>
@@ -315,6 +315,49 @@
                     runButton.textContent = 'Run Code';
                 }
             });
+
+            let lastSavedContent = '';
+
+            function autoSave() {
+                const editor = monaco.editor.getEditors()[0];
+                const currentContent = editor.getValue();
+                const statusElement = document.getElementById('autoSaveStatus');
+
+                // Only save if content has changed
+                if (currentContent && currentContent !== lastSavedContent) {
+                    const studentId = document.querySelector('input[name="StudentId"]').value;
+                    const group = document.querySelector('input[name="Group"]').value;
+                    const question = document.querySelector('input[name="Question"]').value;
+
+                    fetch(`/api/Questions/autosave/${studentId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            groupId: parseInt(group),
+                            questionIndex: parseInt(question),
+                            code: currentContent
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            lastSavedContent = currentContent;
+                            console.log('Auto-saved at:', new Date().toLocaleTimeString());
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Auto-save failed:', error);
+                    });
+                }
+            }
+
+            // Start auto-save interval when editor is loaded
+            setInterval(autoSave, 60000); // Run every 60 seconds
+
+            // Also save when user switches away from the window
+            window.addEventListener('blur', autoSave);
         });
     </script>
 }

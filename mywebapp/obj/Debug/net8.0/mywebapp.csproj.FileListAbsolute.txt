@@ -320,3 +320,4 @@
 /app/bin/Debug/net8.0/Microsoft.AspNetCore.Mvc.NewtonsoftJson.dll
 /app/bin/Debug/net8.0/Newtonsoft.Json.dll
 /app/bin/Debug/net8.0/Newtonsoft.Json.Bson.dll
+/app/bin/Debug/net8.0/wwwroot/js/autoSave.js
