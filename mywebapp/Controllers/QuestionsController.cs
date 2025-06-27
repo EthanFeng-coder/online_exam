@@ -443,6 +443,36 @@ namespace mywebapp.Controllers
             public DateTime LastSaved { get; set; }
         }
 
+        [HttpPost("markAsDone")]
+        public async Task<IActionResult> MarkAsDone([FromBody] StudentCompletion completion)
+        {
+            try
+            {
+                var jsonFilePath = Path.Combine(_environment.ContentRootPath, "Data", "students.json");
+                var jsonContent = await System.IO.File.ReadAllTextAsync(jsonFilePath);
+                var data = JsonSerializer.Deserialize<StudentData>(jsonContent);
+
+                var student = data?.Students.FirstOrDefault(s => s.Id == completion.StudentId);
+                if (student == null)
+                {
+                    return NotFound($"Student {completion.StudentId} not found");
+                }
+
+                // Mark the student as done
+                student.Progress.Done = true;
+                student.Progress.CompletedAt = completion.CompletedAt;
+
+                // Save back to file
+                await System.IO.File.WriteAllTextAsync(jsonFilePath, 
+                    JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true }));
+
+                return Ok(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
     }
     public class QuestionData
     {
@@ -477,5 +507,11 @@ namespace mywebapp.Controllers
         public int GroupId { get; set; }
         public int QuestionIndex { get; set; }
         public string Code { get; set; } = string.Empty;
+    }
+
+    public class StudentCompletion
+    {
+        public string StudentId { get; set; } = string.Empty;
+        public DateTime CompletedAt { get; set; }
     }
 }

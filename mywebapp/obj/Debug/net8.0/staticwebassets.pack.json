@@ -13,10 +13,6 @@
       "PackagePath": "staticwebassets/favicon.ico"
     },
     {
-      "Id": "/app/wwwroot/js/autoSave.js",
-      "PackagePath": "staticwebassets/js/autoSave.js"
-    },
-    {
       "Id": "/app/wwwroot/js/site.js",
       "PackagePath": "staticwebassets/js/site.js"
     },

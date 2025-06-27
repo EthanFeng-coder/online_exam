@@ -57,8 +57,7 @@ namespace mywebapp.Pages
                     return LocalRedirect(Url.Page("/Dashboard", new { 
                         group = 1, 
                         question = 0,
-                        studentId = student.Id,
-                        name = student.Name // optionally add student name if needed
+                        studentId = student.Id
                     }) ?? "/");
                 }
 

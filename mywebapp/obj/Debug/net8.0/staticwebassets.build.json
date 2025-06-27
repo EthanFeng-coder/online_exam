@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "wNa+UNA6xsuCGcBO27TxuboF97wpvgt0vSOwrmDnuaU=",
+  "Hash": "twcviK5c8bKXrvpoSzpvEHRUZ3B08EgKj2sXg9cbUlQ=",
   "Source": "mywebapp",
   "BasePath": "_content/mywebapp",
   "Mode": "Default",
@@ -91,25 +91,6 @@
       "CopyToOutputDirectory": "PreserveNewest",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot/favicon.ico"
-    },
-    {
-      "Identity": "/app/wwwroot/js/autoSave.js",
-      "SourceId": "mywebapp",
-      "SourceType": "Discovered",
-      "ContentRoot": "/app/wwwroot/",
-      "BasePath": "_content/mywebapp",
-      "RelativePath": "js/autoSave.js",
-      "AssetKind": "All",
-      "AssetMode": "All",
-      "AssetRole": "Primary",
-      "AssetMergeBehavior": "PreferTarget",
-      "AssetMergeSource": "",
-      "RelatedAsset": "",
-      "AssetTraitName": "",
-      "AssetTraitValue": "",
-      "CopyToOutputDirectory": "PreserveNewest",
-      "CopyToPublishDirectory": "PreserveNewest",
-      "OriginalItemSpec": "wwwroot/js/autoSave.js"
     },
     {
       "Identity": "/app/wwwroot/js/site.js",

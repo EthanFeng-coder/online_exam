@@ -37,21 +37,49 @@ namespace mywebapp.Pages
         {
             try
             {
-                // Get parameters from query string
                 if (string.IsNullOrEmpty(StudentId))
                 {
                     return RedirectToPage("/Index");
                 }
 
+                // First get student's current progress
                 var client = _clientFactory.CreateClient("Questions");
-                var response = await client.GetAsync($"api/Questions/groups/{Group}/questions/{Question}?studentId={StudentId}");
+                var studentResponse = await client.GetAsync($"api/Questions/students/{StudentId}");
                 
+                if (studentResponse.IsSuccessStatusCode)
+                {
+                    var studentData = await studentResponse.Content.ReadFromJsonAsync<Student>();
+                    Console.WriteLine($"{Group} {studentData.Progress.CurrentGroupId}");
+                    if (studentData != null && Group != studentData.Progress.CurrentGroupId)
+                    {
+                        Console.WriteLine($"Student {StudentId} attempted to access unauthorized group. Current: {studentData.Progress.CurrentGroupId}, Attempted: {Group}");
+                        return RedirectToPage("/Index");
+                    }
+                }
+
+                // Check if this is the last question of a group
+                if (Question > 4)
+                {
+                    Question = 0;
+                    Group += 1;
+                }
+
+                var response = await client.GetAsync($"api/Questions/groups/{Group}/questions/{Question}?studentId={StudentId}");
                 Console.WriteLine($"API Response status: {response.StatusCode}");
                 
                 if (response.IsSuccessStatusCode)
                 {
                     CurrentQuestion = await response.Content.ReadFromJsonAsync<Question>();
                     return Page();
+                }
+                else if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    return RedirectToPage("/Completion", new 
+                    { 
+                        studentId = StudentId,
+                        groupId = Group - 1,
+                        done = true
+                    });
                 }
                 
                 ErrorMessage = "Failed to load question";
@@ -110,7 +138,55 @@ namespace mywebapp.Pages
                     Console.WriteLine($"Submission successful. Next question: {result.NextQuestion}");
                     Console.WriteLine($"Updating progress for student: {StudentId}");
 
-                    // Update student progress
+                    // Check if this was the last question in the group (index 4)
+                    if (Question == 4)  // Last question in group
+                    {   
+                        Console.WriteLine($"Student {StudentId} completed group {Group}");
+                        
+                        // Mark the student's progress as done in their JSON
+                        var doneResponse = await client.PostAsJsonAsync($"api/Questions/markAsDone", new
+                        {
+                            StudentId = StudentId,
+                            GroupId = Group,
+                            CompletedAt = DateTime.UtcNow,
+                            Done = true
+                        });
+
+                        if (!doneResponse.IsSuccessStatusCode)
+                        {
+                            Console.WriteLine($"Failed to mark student as done: {doneResponse.StatusCode}");
+                            ErrorMessage = "Failed to mark completion";
+                            await OnGetAsync();
+                            return Page();
+                        }
+
+                        // Update progress for the last question
+                        var updateProgressResponse = await client.PostAsJsonAsync($"api/Questions/updateProgress", new
+                        {
+                            StudentId = StudentId,
+                            GroupId = Group,
+                            QuestionIndex = Question,
+                            Completed = true
+                        });
+
+                        if (!updateProgressResponse.IsSuccessStatusCode)
+                        {
+                            Console.WriteLine($"Failed to update progress: {updateProgressResponse.StatusCode}");
+                            ErrorMessage = "Failed to update progress";
+                            await OnGetAsync();
+                            return Page();
+                        }
+
+                        // Redirect to completion page
+                        return RedirectToPage("/Completion", new 
+                        { 
+                            studentId = StudentId,
+                            groupId = Group,
+                            done = true
+                        });
+                    }
+
+                    // For questions 0-3, continue with normal progress update
                     var updateResponse = await client.PostAsJsonAsync($"api/Questions/updateProgress", new
                     {
                         StudentId = StudentId,
