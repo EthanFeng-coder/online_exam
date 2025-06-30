@@ -221,8 +221,13 @@
 
                     if (response.ok) {
                         const result = await response.json();
-                        // Redirect using the correct URL format
-                        window.location.href = `/Dashboard?group=${result.nextGroup}&question=${result.nextQuestion}&studentId=${studentId}`;
+                        if (result.isCompleted) {
+                            // If completed, redirect to completion page
+                            window.location.href = `/Completion?studentId=${studentId}&groupId=${result.nextGroup}&done=true`;
+                        } else {
+                            // Otherwise, continue to next question
+                            window.location.href = `/Dashboard?group=${result.nextGroup}&question=${result.nextQuestion}&studentId=${studentId}`;
+                        }
                     } else {
                         const error = await response.json();
                         document.getElementById('output').textContent = `Error: ${error.message || 'Failed to submit code'}`;

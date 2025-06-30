@@ -136,6 +136,42 @@ namespace mywebapp.Controllers
                     return BadRequest(new { error = "Student ID is required" });
                 }
 
+                // Load student data to check authorization
+                var studentsPath = Path.Combine(_environment.ContentRootPath, "Data/students.json");
+                var jsonString = System.IO.File.ReadAllText(studentsPath);
+                var studentData = JsonSerializer.Deserialize<StudentData>(jsonString,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                var student = studentData?.Students.FirstOrDefault(s => s.Id == studentId);
+                if (student == null)
+                {
+                    return NotFound("Student not found");
+                }
+
+                // Check if student has already completed their exam
+                if (student.Progress.Done)
+                {
+                    Console.WriteLine($"Student {studentId} attempted to access questions after completion");
+                    return StatusCode(StatusCodes.Status403Forbidden, new 
+                    { 
+                        error = "Exam completed",
+                        message = "You have already completed your exam",
+                        completedAt = student.Progress.CompletedAt
+                    });
+                }
+
+                // Check if student is authorized for this group
+                if (groupId != student.Progress.CurrentGroupId)
+                {
+                    Console.WriteLine($"Unauthorized access attempt - Student: {studentId}, Attempted Group: {groupId}, Current Group: {student.Progress.CurrentGroupId}");
+                    return StatusCode(StatusCodes.Status401Unauthorized, new 
+                    { 
+                        error = "Unauthorized access",
+                        message = "You are not authorized to access this group",
+                        currentGroup = student.Progress.CurrentGroupId
+                    });
+                }
+
                 var group = _questionGroups.FirstOrDefault(g => g.Id == groupId);
                 if (group == null)
                 {
@@ -236,8 +272,33 @@ namespace mywebapp.Controllers
                     {
                         student.CompletedGroups.Add(submission.GroupId);
                     }
-                    student.Progress.CurrentGroupId++;
-                    student.Progress.CurrentQuestionIndex = 0;
+                    
+                    // Mark as done since there are no more questions
+                    student.Progress.CurrentGroupId = submission.GroupId;
+                    student.Progress.CurrentQuestionIndex = submission.QuestionIndex;
+                    student.Progress.Done = true;
+                    student.Progress.CompletedAt = DateTime.UtcNow;
+
+                    // Save the updated JSON back to file
+                    var Doneoptions = new JsonSerializerOptions
+                    {
+                        WriteIndented = true,
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    };
+                    
+                    var DoneupdatedJson = JsonSerializer.Serialize(studentData, Doneoptions);
+                    System.IO.File.WriteAllText(studentsPath, DoneupdatedJson);
+                    
+                    Console.WriteLine($"Student {submission.StudentId} has completed all questions");
+
+                    return Ok(new
+                    {
+                        message = "All questions completed",
+                        nextGroup = student.Progress.CurrentGroupId,
+                        nextQuestion = student.Progress.CurrentQuestionIndex,
+                        isCompleted = true,
+                        completedAt = student.Progress.CompletedAt
+                    });
                 }
 
                 // Save the updated JSON back to file
@@ -255,8 +316,9 @@ namespace mywebapp.Controllers
                 return Ok(new
                 {
                     message = "Submission saved successfully",
-                    nextGroup = student.Progress.CurrentGroupId,
-                    nextQuestion = student.Progress.CurrentQuestionIndex
+                    nextGroup = student.Progress.CurrentGroupId,  // Will stay the same
+                    nextQuestion = student.Progress.CurrentQuestionIndex,
+                    isCompleted = student.Progress.Done
                 });
             }
             catch (Exception ex)

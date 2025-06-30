@@ -28,7 +28,7 @@ namespace mywebapp.Pages
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid)
             {
@@ -46,19 +46,27 @@ namespace mywebapp.Pages
 
                 Console.WriteLine($"Login attempt - ID: {StudentId}");
                 
-                var student = studentData.Students.FirstOrDefault(s => s.ValidateCredentials(StudentId, Password));
+                var studentAuthenticated = studentData.Students.Any(s => s.ValidateCredentials(StudentId, Password));
                 
-                if (student != null)
+                if (studentAuthenticated)
                 {
-                    // Remove session related code since we'll use URL parameters
-                    Console.WriteLine($"Login successful for ID: {student.Id}");
+                    // Set authentication cookie
+                    var cookieOptions = new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.Strict,
+                        Expires = DateTime.Now.AddHours(2)
+                    };
 
-                    // Pass all necessary information via URL parameters
-                    return LocalRedirect(Url.Page("/Dashboard", new { 
-                        group = 1, 
-                        question = 0,
-                        studentId = student.Id
-                    }) ?? "/");
+                    Response.Cookies.Append("StudentAuth", StudentId, cookieOptions);
+
+                    return RedirectToPage("/Dashboard", new 
+                    { 
+                        studentId = StudentId,
+                        group = 1,
+                        question = 0
+                    });
                 }
 
                 Console.WriteLine($"Login failed - Invalid credentials for ID: {StudentId}");

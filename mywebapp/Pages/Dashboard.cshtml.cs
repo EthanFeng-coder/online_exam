@@ -37,50 +37,65 @@ namespace mywebapp.Pages
         {
             try
             {
+                // Check for authentication cookie
+                var authCookie = _httpContextAccessor.HttpContext?.Request.Cookies["StudentAuth"];
+                if (string.IsNullOrEmpty(authCookie) || authCookie != StudentId)
+                {
+                    Console.WriteLine($"Direct URL access attempt without authentication. StudentId: {StudentId}");
+                    return RedirectToPage("/Index");
+                }
+
                 if (string.IsNullOrEmpty(StudentId))
                 {
                     return RedirectToPage("/Index");
                 }
+                
 
                 // First get student's current progress
                 var client = _clientFactory.CreateClient("Questions");
                 var studentResponse = await client.GetAsync($"api/Questions/students/{StudentId}");
-                
-                if (studentResponse.IsSuccessStatusCode)
-                {
-                    var studentData = await studentResponse.Content.ReadFromJsonAsync<Student>();
-                    Console.WriteLine($"{Group} {studentData.Progress.CurrentGroupId}");
-                    if (studentData != null && Group != studentData.Progress.CurrentGroupId)
-                    {
-                        Console.WriteLine($"Student {StudentId} attempted to access unauthorized group. Current: {studentData.Progress.CurrentGroupId}, Attempted: {Group}");
-                        return RedirectToPage("/Index");
-                    }
-                }
+               
+                // if (studentResponse.IsSuccessStatusCode)
+                // {
+                //     var studentData = await studentResponse.Content.ReadFromJsonAsync<Student>();
+                //     Console.WriteLine($"{Group} {studentData.Progress.CurrentGroupId}");
+                //     if (studentData != null && Group != studentData.Progress.CurrentGroupId)
+                //     {
+                //         Console.WriteLine($"Student {StudentId} attempted to access unauthorized group. Current: {studentData.Progress.CurrentGroupId}, Attempted: {Group}");
+                //         return RedirectToPage("/Index");
+                //     }
+                // }
 
                 // Check if this is the last question of a group
                 if (Question > 4)
                 {
                     Question = 0;
-                    Group += 1;
+                    Group = 1;
                 }
 
                 var response = await client.GetAsync($"api/Questions/groups/{Group}/questions/{Question}?studentId={StudentId}");
                 Console.WriteLine($"API Response status: {response.StatusCode}");
-                
+
+                if (response.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    Console.WriteLine($"Student {StudentId} attempted to access questions after completion");
+                    // Remove auth cookie since they're done
+                    Response.Cookies.Delete("StudentAuth");
+                    return RedirectToPage("/Index");
+                }
+
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    Console.WriteLine($"Unauthorized access attempt for Student: {StudentId}, Group: {Group}");
+                    return RedirectToPage("/Index");
+                }
+
                 if (response.IsSuccessStatusCode)
                 {
                     CurrentQuestion = await response.Content.ReadFromJsonAsync<Question>();
                     return Page();
                 }
-                else if (response.StatusCode == HttpStatusCode.NotFound)
-                {
-                    return RedirectToPage("/Completion", new 
-                    { 
-                        studentId = StudentId,
-                        groupId = Group - 1,
-                        done = true
-                    });
-                }
+               
                 
                 ErrorMessage = "Failed to load question";
                 return Page();
@@ -176,10 +191,12 @@ namespace mywebapp.Pages
                             await OnGetAsync();
                             return Page();
                         }
-
+                        // Remove the authentication cookie
+                        Response.Cookies.Delete("StudentAuth");
+                        
                         // Redirect to completion page
-                        return RedirectToPage("/Completion", new 
-                        { 
+                        return RedirectToPage("/Completion", new
+                        {
                             studentId = StudentId,
                             groupId = Group,
                             done = true
