@@ -148,6 +148,47 @@ namespace mywebapp.Controllers
                     return NotFound("Student not found");
                 }
 
+                // Initialize start time if not set
+                if (!student.StartTime.HasValue)
+                {
+                    student.StartTime = GetCurrentAustralianTime();
+                    Console.WriteLine($"Setting initial start time (Australian): {student.StartTime}");
+
+                    // Save the updated student data
+                    var startTimeOptions = new JsonSerializerOptions
+                    {
+                        WriteIndented = true,
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    };
+                    System.IO.File.WriteAllText(studentsPath, 
+                        JsonSerializer.Serialize(studentData, startTimeOptions));
+                }
+
+                // Check time limit
+                var currentAustralianTime = GetCurrentAustralianTime();
+                if (student.StartTime.HasValue)
+                {
+                    var timeElapsed = currentAustralianTime - student.StartTime.Value;
+                    if (timeElapsed.TotalMinutes > 60)
+                    {
+                        student.Progress.Done = true;
+                        student.Progress.CompletedAt = currentAustralianTime;
+                        
+                        // Save the updated status
+                        System.IO.File.WriteAllText(studentsPath, 
+                            JsonSerializer.Serialize(studentData, new JsonSerializerOptions { WriteIndented = true }));
+
+                        return StatusCode(StatusCodes.Status403Forbidden, new 
+                        { 
+                            error = "Time limit exceeded",
+                            message = "Your exam time limit of 60 minutes has expired",
+                            completedAt = student.Progress.CompletedAt,
+                            timeElapsed = timeElapsed.TotalMinutes,
+                            australianTime = currentAustralianTime
+                        });
+                    }
+                }
+
                 // Check if student has already completed their exam
                 if (student.Progress.Done)
                 {
@@ -192,7 +233,16 @@ namespace mywebapp.Controllers
                 // Replace placeholders in description
                 questionWithPreviousCode.Description = ReplaceWithStudentNumbers(questionWithPreviousCode.Description, studentId);
 
-                return Ok(questionWithPreviousCode);
+                // Before returning the question
+                return Ok(new
+                {
+                    question = questionWithPreviousCode,
+                    startTime = student.StartTime,
+                    currentTime = currentAustralianTime,
+                    timeElapsed = student.StartTime.HasValue 
+                        ? (currentAustralianTime - student.StartTime.Value).TotalMinutes 
+                        : 0
+                });
             }
             catch (Exception ex)
             {
@@ -243,7 +293,7 @@ namespace mywebapp.Controllers
                     GroupId = submission.GroupId,
                     QuestionIndex = submission.QuestionIndex,
                     Code = submission.Code,
-                    SubmittedAt = DateTime.UtcNow
+                    SubmittedAt = GetCurrentAustralianTime()
                 };
                 student.Progress.Submissions.Add(newSubmission);
 
@@ -277,7 +327,7 @@ namespace mywebapp.Controllers
                     student.Progress.CurrentGroupId = submission.GroupId;
                     student.Progress.CurrentQuestionIndex = submission.QuestionIndex;
                     student.Progress.Done = true;
-                    student.Progress.CompletedAt = DateTime.UtcNow;
+                    student.Progress.CompletedAt = GetCurrentAustralianTime();
 
                     // Save the updated JSON back to file
                     var Doneoptions = new JsonSerializerOptions
@@ -369,7 +419,7 @@ namespace mywebapp.Controllers
                     GroupId = request.GroupId,
                     QuestionIndex = request.QuestionIndex,
                     Code = request.Code,
-                    SubmittedAt = DateTime.UtcNow
+                    SubmittedAt = GetCurrentAustralianTime()
                 };
 
                 // Save back to file
@@ -396,7 +446,7 @@ namespace mywebapp.Controllers
                 try
                 {
                     var saveData = JsonSerializer.Deserialize<AutoSaveData>(savedJson);
-                    if ((DateTime.Now - saveData.LastSaved).TotalMinutes <= 1)
+                    if ((GetCurrentAustralianTime() - saveData.LastSaved).TotalMinutes <= 1)
                     {
                         return saveData.Code;
                     }
@@ -522,7 +572,7 @@ namespace mywebapp.Controllers
 
                 // Mark the student as done
                 student.Progress.Done = true;
-                student.Progress.CompletedAt = completion.CompletedAt;
+                student.Progress.CompletedAt = GetCurrentAustralianTime();
 
                 // Save back to file
                 await System.IO.File.WriteAllTextAsync(jsonFilePath, 
@@ -534,6 +584,26 @@ namespace mywebapp.Controllers
             {
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
+        }
+
+        private static readonly TimeZoneInfo AustralianTimeZone;
+
+        static QuestionsController()
+        {
+            try
+            {
+                AustralianTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Australia/Sydney");
+            }
+            catch
+            {
+                // Fallback for systems that don't have IANA timezone IDs
+                AustralianTimeZone = TimeZoneInfo.FindSystemTimeZoneById("AUS Eastern Standard Time");
+            }
+        }
+
+        private DateTime GetCurrentAustralianTime()
+        {
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, AustralianTimeZone);
         }
     }
     public class QuestionData

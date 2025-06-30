@@ -27,6 +27,10 @@ namespace mywebapp.Pages
         [BindProperty]
         public string SubmittedCode { get; set; } = string.Empty;
 
+        public DateTime? StartTime { get; set; }
+        public double TimeElapsed { get; set; }
+        public DateTime CurrentTime { get; set; }
+
         public DashboardModel(IHttpClientFactory clientFactory, IHttpContextAccessor httpContextAccessor)
         {
             _clientFactory = clientFactory;
@@ -92,7 +96,11 @@ namespace mywebapp.Pages
 
                 if (response.IsSuccessStatusCode)
                 {
-                    CurrentQuestion = await response.Content.ReadFromJsonAsync<Question>();
+                    var responseData = await response.Content.ReadFromJsonAsync<QuestionResponse>();
+                    CurrentQuestion = responseData?.question;
+                    StartTime = responseData?.startTime;
+                    CurrentTime = responseData?.currentTime ?? DateTime.UtcNow;
+                    TimeElapsed = responseData?.timeElapsed ?? 0;
                     return Page();
                 }
                
@@ -303,5 +311,13 @@ namespace mywebapp.Pages
         public int QuestionIndex { get; set; }
         public string Code { get; set; } = string.Empty;
         public DateTime SavedAt { get; set; }
+    }
+
+    public class QuestionResponse
+    {
+        public Question? question { get; set; }
+        public DateTime? startTime { get; set; }
+        public DateTime currentTime { get; set; }
+        public double timeElapsed { get; set; }
     }
 }

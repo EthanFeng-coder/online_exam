@@ -42,10 +42,18 @@
                         <div id="editor" style="height: calc(100vh - 90px);">
                             <textarea asp-for="SubmittedCode" style="display: none;"></textarea>
                         </div>
-                        <div class="p-2 d-flex gap-2">
-                            <button type="button" class="btn btn-primary" id="runCode">Run Code</button>
-                            <button type="button" class="btn btn-success" id="submitBtn">Submit</butto>
-                        </div>
+                        <div class="p-2 d-flex gap-2 justify-content-between align-items-center">
+    <div class="d-flex gap-2">
+        <button type="button" class="btn btn-primary" id="runCode">Run Code</button>
+        <button type="button" class="btn btn-success" id="submitBtn">Submit</button>
+    </div>
+    <div class="time-info">
+    @if (Model.StartTime.HasValue)
+    {
+        <span class="time-elapsed" id="timeDisplay">Time: @Math.Round(Model.TimeElapsed * 60) sec</span>
+    }
+</div>
+</div>
                     </form>
                 </div>
             </div>
@@ -80,6 +88,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-success" id="confirmSubmit">Yes, Submit</button>
+                
             </div>
         </div>
     </div>
@@ -162,6 +171,18 @@
         width: 1rem;
         height: 1rem;
         margin-right: 0.5rem;
+    }
+
+    .time-info {
+        padding: 0.5rem 1rem;
+        background-color: #f8f9fa;
+        border-radius: 0.375rem;
+        margin-top: 0.5rem;
+    }
+
+    .time-elapsed {
+        font-weight: 500;
+        color: #333;
     }
 </style>
 
@@ -363,6 +384,48 @@
 
             // Also save when user switches away from the window
             window.addEventListener('blur', autoSave);
+
+            // Initialize timer variables
+const TOTAL_TIME = 60 * 60; // 60 minutes in seconds
+const startTime = new Date(@Json.Serialize(Model.StartTime));
+const initialElapsed = @Json.Serialize(Model.TimeElapsed * 60); // Convert minutes to seconds
+let remainingSeconds = TOTAL_TIME - Math.round(initialElapsed);
+const timeDisplay = document.getElementById('timeDisplay');
+
+// Format time function
+function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `Time Left: ${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Update timer every second
+const timer = setInterval(() => {
+    if (remainingSeconds > 0) {
+        remainingSeconds--;
+        if (timeDisplay) {
+            timeDisplay.textContent = formatTime(remainingSeconds);
+            // Add warning color when less than 5 minutes
+            if (remainingSeconds < 300) {
+                timeDisplay.style.color = '#dc3545'; // Bootstrap danger color
+                timeDisplay.style.fontWeight = 'bold';
+            }
+        }
+    } else {
+        clearInterval(timer);
+        if (timeDisplay) {
+            timeDisplay.textContent = 'Time Up!';
+            timeDisplay.style.color = '#dc3545';
+            // You might want to auto-submit here
+            document.getElementById('submitBtn').click();
+        }
+    }
+}, 1000);
+
+// Clean up timer when leaving the page
+window.addEventListener('beforeunload', () => {
+    clearInterval(timer);
+});
         });
     </script>
 }

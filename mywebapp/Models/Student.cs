@@ -14,6 +14,7 @@ namespace mywebapp.Models
         public List<int> CompletedGroups { get; set; } = new();
         public StudentProgress Progress { get; set; } = new();
         public DateTime? StartTime { get; set; }
+        public DateTime? CompletedAt { get; set; }
 
         // Helper method to validate login - password should be just "ict212"
         public bool ValidateCredentials(string studentId, string password)
