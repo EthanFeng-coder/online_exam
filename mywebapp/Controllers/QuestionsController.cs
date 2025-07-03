@@ -262,7 +262,7 @@ namespace mywebapp.Controllers
         {
             try
             {
-                Console.WriteLine($"Processing submission for student: {submission.StudentId}");
+                Console.WriteLine($"Processing submission for student: {submission.StudentId} from IP: {submission.IpAddress}");
                 
                 var studentsPath = Path.Combine(_environment.ContentRootPath, "Data/students.json");
                 Console.WriteLine($"Loading students data from: {studentsPath}");
@@ -287,13 +287,14 @@ namespace mywebapp.Controllers
                     return NotFound("Student not found");
                 }
 
-                // Add new submission
+                // Add new submission with IP address
                 var newSubmission = new Submission
                 {
                     GroupId = submission.GroupId,
                     QuestionIndex = submission.QuestionIndex,
                     Code = submission.Code,
-                    SubmittedAt = GetCurrentAustralianTime()
+                    SubmittedAt = GetCurrentAustralianTime(),
+                    IpAddress = submission.IpAddress // Add this line
                 };
                 student.Progress.Submissions.Add(newSubmission);
 
@@ -413,13 +414,14 @@ namespace mywebapp.Controllers
                     return NotFound($"Student {studentId} not found");
                 }
 
-                // Create autosave entry using same structure as submission
+                // Create autosave entry with IP
                 student.Progress.AutoSave = new Submission
                 {
                     GroupId = request.GroupId,
                     QuestionIndex = request.QuestionIndex,
                     Code = request.Code,
-                    SubmittedAt = GetCurrentAustralianTime()
+                    SubmittedAt = GetCurrentAustralianTime(),
+                    IpAddress = request.IpAddress // Add this line
                 };
 
                 // Save back to file
@@ -632,6 +634,8 @@ namespace mywebapp.Controllers
 
         [Required(ErrorMessage = "Code submission is required")]
         public string Code { get; set; } = string.Empty;
+
+        public string IpAddress { get; set; } = string.Empty;
     }
 
     public class AutoSaveRequest
@@ -639,6 +643,7 @@ namespace mywebapp.Controllers
         public int GroupId { get; set; }
         public int QuestionIndex { get; set; }
         public string Code { get; set; } = string.Empty;
+        public string IpAddress { get; set; } = string.Empty;
     }
 
     public class StudentCompletion
