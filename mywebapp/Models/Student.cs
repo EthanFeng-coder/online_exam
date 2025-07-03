@@ -22,11 +22,11 @@ namespace mywebapp.Models
             return Id == studentId && password == Constants.DefaultPassword;
         }
 
-        public void AddSubmission(int groupId, int questionIndex, string code)
+        public void AddSubmission(int groupId, int questionIndex, string code, string ipAddress)
         {
             try
             {
-                Console.WriteLine($"Adding submission for student {Id}");
+                Console.WriteLine($"Adding submission for student {Id} from IP {ipAddress}");
                 Console.WriteLine($"Group: {groupId}, Question: {questionIndex}");
                 
                 Progress.Submissions.Add(new Submission
@@ -34,7 +34,8 @@ namespace mywebapp.Models
                     GroupId = groupId,
                     QuestionIndex = questionIndex,
                     Code = code,
-                    SubmittedAt = DateTime.UtcNow
+                    SubmittedAt = DateTime.UtcNow,
+                    IpAddress = ipAddress
                 });
 
                 Console.WriteLine($"Submission added successfully");
@@ -59,6 +60,21 @@ namespace mywebapp.Models
             return Progress.Submissions.Any(s => 
                 s.GroupId == groupId && s.QuestionIndex == questionIndex);
         }
+
+        public IEnumerable<Submission> GetSubmissionsByIp(string ipAddress)
+        {
+            return Progress.Submissions
+                .Where(s => s.IpAddress == ipAddress)
+                .OrderBy(s => s.SubmittedAt);
+        }
+
+        public bool HasSubmittedFromMultipleIps()
+        {
+            return Progress.Submissions
+                .Select(s => s.IpAddress)
+                .Distinct()
+                .Count() > 1;
+        }
     }
 
     public class StudentProgress
@@ -77,6 +93,7 @@ namespace mywebapp.Models
         public int QuestionIndex { get; set; }
         public required string Code { get; set; }
         public DateTime SubmittedAt { get; set; }
+        public string IpAddress { get; set; } = string.Empty;
     }
 
     public class StudentData

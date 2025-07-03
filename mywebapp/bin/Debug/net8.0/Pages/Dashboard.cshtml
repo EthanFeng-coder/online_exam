@@ -65,7 +65,7 @@
                 <div class="card-header bg-secondary text-white">
                     <h6 class="mb-0">Output</h6>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-0">
                     <pre id="output" class="output-area"></pre>
                 </div>
             </div>
@@ -126,9 +126,35 @@
         overflow-y: auto;
     }
 
-    .output-area {
-        height: calc(100vh - 130px);
-        overflow-y: auto;
+/* Update existing output styles */
+.output-area {
+    min-height: 200px;
+    overflow-y: auto;
+    font-family: Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.output-area pre {
+    margin: 0;
+    padding: 0;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+    /* Remove these color classes if they exist */
+    .output-area .text-success,
+    .output-area .text-danger,
+    .output-area .text-warning {
+        color: inherit;
+    }
+
+    .output-area pre {
+        margin: 0;
+        padding: 0;
     }
 
     .question-description {
@@ -184,6 +210,10 @@
         font-weight: 500;
         color: #333;
     }
+
+    .squiggly-error {
+        background: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%206%203'%20enable-background%3D'new%200%200%206%203'%20height%3D'3'%20width%3D'6'%3E%3Cg%20fill%3D'%23ff0000'%3E%3Cpolygon%20points%3D'5.5%2C0%202.5%2C3%201.1%2C3%204.1%2C0'%2F%3E%3Cpolygon%20points%3D'4%2C0%206%2C2%206%2C0.6%205.4%2C0'%2F%3E%3Cpolygon%20points%3D'0%2C2%201%2C3%202.4%2C3%200%2C0.6'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") repeat-x bottom 3px left 0;
+    }
 </style>
 
 @section Scripts {
@@ -191,6 +221,9 @@
     <script>
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
         require(['vs/editor/editor.main'], function() {
+            // Add this line to declare the decorations variable
+            let decorations = [];
+            
             var editor = monaco.editor.create(document.getElementById('editor'), {
                 value: @Json.Serialize(Model.CurrentQuestion?.InitialCode ?? "// Write your code here"),
                 language: 'csharp',
@@ -258,7 +291,7 @@
                 }
             });
 
-            // Keep Run Code functionality for testing
+            // Update the run code functionality
             const runButton = document.getElementById('runCode');
             runButton.addEventListener('click', async function() {
                 const outputElement = document.getElementById('output');
@@ -277,24 +310,27 @@
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ code: editor.getValue() })
+                        body: JSON.stringify({ 
+                            code: editor.getValue() 
+                        })
                     });
+
 
                     const result = await response.json();
                     
-                    if (response.ok) {
-                        outputElement.textContent = result.output;
+                    
+                    if (response.ok && result.Output) {
+                        // Simple plain text output without coloring
+                        outputElement.innerHTML = `<pre>${result.Output}</pre>`;
                     } else if (result.errors && result.errors.length > 0) {
-                        // Create error markers for Monaco editor
+                        // Keep error handling as is
                         const markers = result.errors.map(err => ({
-                            startLineNumber: err.line,
-                            startColumn: err.column,
-                            endLineNumber: err.line,
-                            endColumn: err.column + 1,
-                            message: `${err.severity} ${err.errorCode}: ${err.message}`,
-                            severity: err.severity === 'error' ? 
-                                monaco.MarkerSeverity.Error : 
-                                monaco.MarkerSeverity.Warning
+                            startLineNumber: err.line || 1,
+                            startColumn: err.column || 1,
+                            endLineNumber: err.line || 1,
+                            endColumn: (err.column || 1) + 1,
+                            message: err.message || 'Unknown error',
+                            severity: monaco.MarkerSeverity.Error
                         }));
 
                         // Set markers on the model
@@ -304,37 +340,20 @@
                             markers
                         );
 
-                        // Add error decorations
-                        decorations = editor.deltaDecorations([], markers.map(marker => ({
-                            range: new monaco.Range(
-                                marker.startLineNumber,
-                                marker.startColumn,
-                                marker.endLineNumber,
-                                marker.endColumn
-                            ),
-                            options: {
-                                className: 'squiggly-error',
-                                hoverMessage: { value: marker.message }
-                            }
-                        })));
-
                         // Show errors in output
-                        const errorMessages = result.errors
-                            .map(err => `${err.severity} ${err.errorCode}: ${err.message} (Line ${err.line}, Column ${err.column})`)
+                        outputElement.innerHTML = result.errors
+                            .map(err => `Error (${err.line}:${err.column}): ${err.message}`)
                             .join('\n');
-                        outputElement.textContent = errorMessages;
-
-                        if (result.rawError && !errorMessages) {
-                            outputElement.textContent = result.rawError;
-                        }
+                    } else if (result.error) {
+                        // Handle runtime errors with formatting
+                        outputElement.innerHTML = `<span class="text-danger">Runtime Error: ${result.error.type}\n${result.error.message}\nLine: ${result.error.line}</span>`;
                     } else {
-                        outputElement.textContent = `Compilation failed with exit code ${result.exitCode}`;
-                        if (result.rawError) {
-                            outputElement.textContent += `\n\n${result.rawError}`;
-                        }
+                        // Handle unexpected response
+                        outputElement.innerHTML = '<span class="text-warning">No output received from code execution</span>';
                     }
                 } catch (error) {
-                    outputElement.textContent = 'Error: ' + error.message;
+                    // Handle execution errors
+                    outputElement.innerHTML = `<span class="text-danger">Error: ${error.message}</span>`;
                 } finally {
                     // Re-enable button and restore original text
                     runButton.disabled = false;
@@ -386,7 +405,7 @@
             window.addEventListener('blur', autoSave);
 
             // Initialize timer variables
-const TOTAL_TIME = 60 * 60; // 60 minutes in seconds
+const TOTAL_TIME = 60 * 60; // 60 minutes in seconds * 60
 const startTime = new Date(@Json.Serialize(Model.StartTime));
 const initialElapsed = @Json.Serialize(Model.TimeElapsed * 60); // Convert minutes to seconds
 let remainingSeconds = TOTAL_TIME - Math.round(initialElapsed);
@@ -405,9 +424,8 @@ const timer = setInterval(() => {
         remainingSeconds--;
         if (timeDisplay) {
             timeDisplay.textContent = formatTime(remainingSeconds);
-            // Add warning color when less than 5 minutes
             if (remainingSeconds < 300) {
-                timeDisplay.style.color = '#dc3545'; // Bootstrap danger color
+                timeDisplay.style.color = '#dc3545';
                 timeDisplay.style.fontWeight = 'bold';
             }
         }
@@ -416,8 +434,13 @@ const timer = setInterval(() => {
         if (timeDisplay) {
             timeDisplay.textContent = 'Time Up!';
             timeDisplay.style.color = '#dc3545';
-            // You might want to auto-submit here
-            document.getElementById('submitBtn').click();
+            
+            // Get student data from hidden inputs
+            const studentId = document.querySelector('input[name="StudentId"]').value;
+            const group = document.querySelector('input[name="Group"]').value;
+            
+            // Direct redirect to completion page
+            window.location.href = `/Completion?studentId=${studentId}&groupId=${group}&done=true`;
         }
     }
 }, 1000);

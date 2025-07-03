@@ -128,13 +128,16 @@ namespace mywebapp.Pages
                 Console.WriteLine($"Submitting solution for Student: {StudentId}, Group: {Group}, Question: {Question}");
 
                 var client = _clientFactory.CreateClient("Questions");
+                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                Console.WriteLine($"IP Address: {ipAddress}");
                 var submission = new CodeSubmission
                 {
                     StudentId = StudentId,
                     GroupId = Group,
                     QuestionIndex = Question,
                     Code = SubmittedCode,
-                    ReplaceExisting = true  // Flag to indicate replacing existing submission
+                    ReplaceExisting = true,
+                    IpAddress = ipAddress
                 };
 
                 // First, delete any existing submission for this question
@@ -253,6 +256,84 @@ namespace mywebapp.Pages
             }
         }
 
+        public async Task<IActionResult> OnPostSubmitAsync()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(StudentId))
+                {
+                    return RedirectToPage("/Index");
+                }
+
+                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                Console.WriteLine($"Submission from IP: {ipAddress}");
+
+                var client = _clientFactory.CreateClient("Questions");
+                var submission = new CodeSubmission
+                {
+                    StudentId = StudentId,
+                    GroupId = Group,
+                    QuestionIndex = Question,
+                    Code = SubmittedCode,
+                    ReplaceExisting = true,
+                    IpAddress = ipAddress
+                };
+
+                // Check if time is up
+                var currentTime = DateTime.UtcNow;
+                if (StartTime.HasValue && (currentTime - StartTime.Value).TotalMinutes > 60)
+                {
+                    // Mark as done due to time up
+                    await client.PostAsJsonAsync("api/Questions/markAsDone", new
+                    {
+                        StudentId = StudentId,
+                        CompletedAt = currentTime
+                    });
+
+                    Response.Cookies.Delete("StudentAuth");
+                    return RedirectToPage("/Index", new { timeExpired = true, studentId = StudentId });
+                }
+
+                // Normal submission flow
+                var response = await client.PostAsJsonAsync("api/Questions/submit", submission);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<SubmissionResult>();
+                    if (result?.NextQuestion > 4)
+                    {
+                        // Last question completed
+                        Response.Cookies.Delete("StudentAuth");
+                        return RedirectToPage("/Completion", new
+                        {
+                            studentId = StudentId,
+                            groupId = Group,
+                            done = true
+                        });
+                    }
+
+                    // Continue to next question
+                    return RedirectToPage("/Dashboard", new
+                    {
+                        studentId = StudentId,
+                        group = result?.NextGroup ?? Group,
+                        question = result?.NextQuestion ?? (Question + 1)
+                    });
+                }
+
+                ErrorMessage = "Failed to submit solution";
+                await OnGetAsync();
+                return Page();
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = "Error submitting solution";
+                Console.WriteLine($"Error in submission: {ex.Message}");
+                await OnGetAsync();
+                return Page();
+            }
+        }
+
         public async Task<IActionResult> OnPostAutoSaveAsync([FromBody] CodeSubmission submission)
         {
             try
@@ -262,6 +343,10 @@ namespace mywebapp.Pages
                     return BadRequest("No student ID provided");
                 }
 
+                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                Console.WriteLine($"Auto-save attempt from IP: {ipAddress}");
+                Console.WriteLine($"Student ID: {submission.StudentId}, Group: {submission.GroupId}, Question: {submission.QuestionIndex}");
+
                 var client = _clientFactory.CreateClient("Questions");
                 
                 var autoSave = new AutoSave
@@ -269,8 +354,12 @@ namespace mywebapp.Pages
                     GroupId = submission.GroupId,
                     QuestionIndex = submission.QuestionIndex,
                     Code = submission.Code,
-                    SavedAt = DateTime.UtcNow
+                    SavedAt = DateTime.UtcNow,
+                    IpAddress = ipAddress
                 };
+
+                // Log before making the API call
+                Console.WriteLine($"Sending auto-save with IP address: {ipAddress}");
 
                 // Submit the auto-saved code
                 var response = await client.PostAsJsonAsync($"api/Questions/autosave/{submission.StudentId}", autoSave);
@@ -284,8 +373,18 @@ namespace mywebapp.Pages
             }
             catch (Exception ex)
             {
+                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                Console.WriteLine($"Error in auto-save from IP {ipAddress}: {ex.Message}");
                 return new JsonResult(new { success = false, message = ex.Message });
             }
+        }
+
+        // Add time check method
+        private bool IsTimeUp()
+        {
+            if (!StartTime.HasValue) return false;
+            var currentTime = DateTime.UtcNow;
+            return (currentTime - StartTime.Value).TotalMinutes > 60;
         }
     }
 
@@ -302,7 +401,8 @@ namespace mywebapp.Pages
         public int GroupId { get; set; }
         public int QuestionIndex { get; set; }
         public required string Code { get; set; }
-        public bool ReplaceExisting { get; set; } = true;  // Default to replacing existing submissions
+        public bool ReplaceExisting { get; set; } = true;
+        public string IpAddress { get; set; } = string.Empty;
     }
 
     public class AutoSave
@@ -311,6 +411,7 @@ namespace mywebapp.Pages
         public int QuestionIndex { get; set; }
         public string Code { get; set; } = string.Empty;
         public DateTime SavedAt { get; set; }
+        public string IpAddress { get; set; } = string.Empty;
     }
 
     public class QuestionResponse
