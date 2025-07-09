@@ -4,6 +4,7 @@
     ViewData["Title"] = "Question Dashboard";
 }
 
+<div class="exam-content">
 <div class="container-fluid vh-100 p-0">
     <div class="row vh-100 g-0">
         <!-- Question Section -->
@@ -72,7 +73,7 @@
         </div>
     </div>
 </div>
-
+</div>
 <!-- Add Modal -->
 <div class="modal fade" id="confirmSubmitModal" tabindex="-1">
     <div class="modal-dialog">
@@ -89,6 +90,29 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-success" id="confirmSubmit">Yes, Submit</button>
                 
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fullscreen Modal -->
+<div class="modal fade" id="fullscreenModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Fullscreen Required</h5>
+            </div>
+            <div class="modal-body">
+                <p>This exam requires fullscreen mode. The exam will start once you enter fullscreen mode.</p>
+                <p>Please note:</p>
+                <ul>
+                    <li>Exiting fullscreen will trigger a warning</li>
+                    <li>Multiple attempts to exit may result in exam termination</li>
+                    <li>Please ensure all other applications are closed</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="enterFullscreenBtn">Enter Fullscreen</button>
             </div>
         </div>
     </div>
@@ -214,11 +238,97 @@
     .squiggly-error {
         background: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%206%203'%20enable-background%3D'new%200%200%206%203'%20height%3D'3'%20width%3D'6'%3E%3Cg%20fill%3D'%23ff0000'%3E%3Cpolygon%20points%3D'5.5%2C0%202.5%2C3%201.1%2C3%204.1%2C0'%2F%3E%3Cpolygon%20points%3D'4%2C0%206%2C2%206%2C0.6%205.4%2C0'%2F%3E%3Cpolygon%20points%3D'0%2C2%201%2C3%202.4%2C3%200%2C0.6'%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E") repeat-x bottom 3px left 0;
     }
+    /* Add fullscreen content hiding */
+    .exam-content {
+        display: none;
+        visibility: hidden;
+        opacity: 0;
+        transition: opacity 0.3s ease-in-out;
+    }
+    
+    /* Show content in fullscreen */
+    :fullscreen .exam-content {
+        display: block;
+        visibility: visible;
+        opacity: 1;
+    }
+    
+    :-webkit-full-screen .exam-content {
+        display: block;
+        visibility: visible;
+        opacity: 1;
+    }
+    
+    :-moz-full-screen .exam-content {
+        display: block;
+        visibility: visible;
+        opacity: 1;
+    }
+    
+    :-ms-fullscreen .exam-content {
+        display: block;
+        visibility: visible;
+        opacity: 1;
+    }
+    
+    /* Add fullscreen warning */
+    .fullscreen-warning {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1050;
+    }
+
+    :fullscreen .fullscreen-warning {
+        display: none;
+    }
+
+    /* Add these rules to your existing <style> section */
+.card-title,
+.question-scroll,
+.question-description {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    pointer-events: none;
+}
+
+/* Keep scrolling enabled for question container */
+.question-scroll {
+    pointer-events: auto;
+    cursor: default;
+}
+ .auto-blur {
+        filter: blur(10px);
+        transition: filter 0.3s ease;
+    }
+    .no-blur {
+        filter: none;
+    }
+/* Ensure output area remains selectable */
+.output-area {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+}
 </style>
 
 @section Scripts {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+    <script src="https://pdfanticopy.com/noprint.js"></script>
     <script>
+            var noPrint = true;
+    var noCopy = true;
+    var noScreenshot = true;
+    var autoBlur = true;
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
         require(['vs/editor/editor.main'], function() {
             // Add this line to declare the decorations variable
@@ -235,7 +345,62 @@
                     enabled: false
                 }
             });
+            // Replace the existing contextmenu event listener with this enhanced version
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    return false;
+});
 
+// Add this after editor initialization
+editor.onContextMenu(function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+});
+
+// Prevent mouse down events for right click
+editor.onMouseDown(function(e) {
+    if (e.event.button === 2) { // Right button
+        e.event.preventDefault();
+        e.event.stopPropagation();
+        return false;
+    }
+});
+if (autoBlur) {
+            const examContent = document.querySelector('.exam-content');
+            
+            window.addEventListener('blur', () => {
+                examContent.classList.add('auto-blur');
+            });
+
+            window.addEventListener('focus', () => {
+                examContent.classList.remove('auto-blur');
+            });
+        }
+
+        // Enhance existing protection
+        document.addEventListener('keyup', e => {
+            if (e.key === 'PrintScreen') {
+                navigator.clipboard.writeText('');
+            }
+        });
+// Disable the default context menu actions
+editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyM, () => {
+    // Do nothing - this prevents the context menu keyboard shortcut
+    return false;
+});
+
+// Update editor options to disable quick suggestions and parameter hints
+editor.updateOptions({
+    contextmenu: false,
+    quickSuggestions: false,
+    parameterHints: {
+        enabled: false
+    },
+    hover: {
+        enabled: false
+    }
+});
             // Update hidden textarea before form submission
             document.querySelector('form').addEventListener('submit', function() {
                 document.querySelector('textarea[name="SubmittedCode"]').value = editor.getValue();
@@ -475,6 +640,279 @@ const timer = setInterval(async () => {
 window.addEventListener('beforeunload', () => {
     clearInterval(timer);
 });
+
+// Add this inside your existing Scripts section after editor initialization
+function enterFullscreen() {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+    } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+    }
+}
+
+// Handle fullscreen changes
+document.addEventListener('fullscreenchange', handleFullscreenChange);
+document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+function handleFullscreenChange() {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement &&
+        !document.mozFullscreenElement && !document.msFullscreenElement) {
+        // Fullscreen was exited - reenter if exam is ongoing
+        if (remainingSeconds > 0) {
+            enterFullscreen();
+        }
+    }
+}
+
+// Prevent key combinations that could exit fullscreen
+document.addEventListener('keydown', function(e) {
+    // Prevent Alt+Tab
+    if (e.altKey && e.key === 'Tab') {
+        e.preventDefault();
+        return false;
+    }
+    
+    // Prevent Alt+F4
+    if (e.altKey && e.key === 'F4') {
+        e.preventDefault();
+        return false;
+    }
+    
+    // Prevent Escape key
+    if (e.key === 'Escape' || e.key === 'Esc') {
+        e.preventDefault();
+        return false;
+    }
+});
+
+// Prevent right-click context menu
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    return false;
+});
+
+// Show fullscreen modal on page load
+const fullscreenModal = new bootstrap.Modal(document.getElementById('fullscreenModal'), {
+    backdrop: 'static',
+    keyboard: false,
+    focus: true
+});
+fullscreenModal.show();
+
+// Enter fullscreen when button is clicked
+document.getElementById('enterFullscreenBtn').addEventListener('click', function() {
+    this.blur(); // Remove focus before hiding modal
+    fullscreenModal.hide();
+    enterFullscreen();
+});
+
+// Add focus management
+document.getElementById('fullscreenModal').addEventListener('shown.bs.modal', function() {
+    document.getElementById('enterFullscreenBtn').focus();
+});
+
+// Add this after editor initialization in the Scripts section
+// Prevent pasting in the entire document except editor
+document.addEventListener('paste', function(e) {
+    const target = e.target;
+    // Allow paste only in Monaco editor
+    if (!target.closest('#editor')) {
+        e.preventDefault();
+        alert('Pasting is not allowed during the exam');
+        return false;
+    }
+});
+
+// Add paste detection to Monaco editor
+editor.onDidPaste((e) => {
+    console.log('Paste detected in editor');
+    @* const studentId = document.querySelector('input[name="StudentId"]').value;
+    fetch('/api/Questions/logPaste', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            studentId: studentId,
+            pastedContent: e.text,
+            timestamp: new Date().toISOString()
+        })
+    }).catch(error => console.error('Failed to log paste:', error)); *@
+});
+
+// Optional: Add warning for paste attempts
+editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, () => {
+    const doPaste = confirm('Warning: Pasting code during the exam is not allowed');
+    if (doPaste) {
+        editor.trigger('keyboard', 'paste', null);
+    }
+});
         });
+        let screenshotAttempts = 0;
+const MAX_SCREENSHOT_ATTEMPTS = 3;
+
+// Add protection overlay
+document.body.insertAdjacentHTML('beforeend', `
+    <div id="screenshot-protection" style="display:none; position:fixed; top:0; left:0; width:100%; height:100vh; 
+        background:#fff; z-index:99999; text-align:center; padding-top:40vh;">
+        <h2 style="color:#dc3545">Screenshot Attempt Detected</h2>
+        <p>Screenshots are not allowed during the exam.</p>
+        <button onclick="hideProtection()" class="btn btn-primary mt-3">Resume Exam</button>
+    </div>
+`);
+
+// Screenshot detection function
+function handleScreenshotAttempt() {
+    screenshotAttempts++;
+    const protection = document.getElementById('screenshot-protection');
+    const counter = document.getElementById('attempt-counter');
+    protection.style.display = 'block';
+    counter.textContent = screenshotAttempts;
+
+}
+
+function hideProtection() {
+    document.getElementById('screenshot-protection').style.display = 'none';
+}
+
+// Detect various screenshot methods
+document.addEventListener('keydown', function(e) {
+     if (e.ctrlKey && e.shiftKey) {
+        console.log('Ctrl+Shift+S detected');
+        e.preventDefault();
+        handleScreenshotAttempt();
+        return false;
+    }
+    if (
+        e.key === 'PrintScreen' ||
+        (e.ctrlKey && (e.key === 'p' || e.key === 'P')) ||
+        (e.metaKey && (e.key === 'p' || e.key === 'P')) ||
+        (e.shiftKey && (e.key === '3' || e.key === '4')) || // Mac screenshots
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i')) // Added Ctrl+Shift+S
+    ) {
+        e.preventDefault();
+        handleScreenshotAttempt();
+        return false;
+    }
+});
+const style = document.createElement('style');
+style.textContent = `
+    @@media print {
+        body * {
+            display: none !important;
+        }
+        body:after {
+            content: "Printing is not allowed during the exam";
+            display: block !important;
+        }
+    }
+
+    #screenshot-protection {
+        background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    video::-webkit-media-controls-enclosure,
+    video::-webkit-media-controls {
+        display: none !important;
+    }
+`;
+const contentProtection = {
+    init() {
+        // Add protective overlay
+        this.addProtectiveLayer();
+        // Add event listeners
+        this.addProtectionEvents();
+    },
+
+    addProtectiveLayer() {
+        const style = document.createElement('style');
+        style.textContent = `
+            /* Prevent text selection */
+            .exam-content {
+                -webkit-user-select: none;
+                -moz-user-select: none;
+                -ms-user-select: none;
+                user-select: none;
+            }
+
+            /* Prevent drag and drop */
+            .exam-content * {
+                -webkit-user-drag: none;
+                -khtml-user-drag: none;
+                -moz-user-drag: none;
+                -o-user-drag: none;
+                user-drag: none;
+            }
+
+            /* Prevent copy */
+            .exam-content {
+                -webkit-touch-callout: none;
+            }
+
+            /* Disable pointer events on images */
+            .exam-content img {
+                pointer-events: none;
+            }
+
+            /* Print prevention */
+            @@media print {
+                body { display: none; }
+            }
+        `;
+        document.head.appendChild(style);
+    },
+
+    addProtectionEvents() {
+        // Prevent copy/cut
+        document.addEventListener('copy', e => {
+            if (!e.target.closest('#editor')) {
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('cut', e => {
+            if (!e.target.closest('#editor')) {
+                e.preventDefault();
+            }
+        });
+
+        // Prevent save page
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+            }
+        });
+
+        // Prevent view source
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+                e.preventDefault();
+            }
+        });
+
+        // Disable developer tools shortcuts
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && 
+                (e.key === 'i' || e.key === 'j' || e.key === 'c')) {
+                e.preventDefault();
+            }
+        });
+    }
+};
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    console.log("User possibly switched away — screenshot?");
+  }
+});
+
+// Initialize protection
+contentProtection.init();
+document.head.appendChild(style);
     </script>
 }
